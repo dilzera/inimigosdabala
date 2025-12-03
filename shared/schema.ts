@@ -160,6 +160,28 @@ export const matchStatsRelations = relations(matchStats, ({ one }) => ({
   }),
 }));
 
+// Payments table for financial tracking
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  amount: real("amount").notNull(),
+  description: varchar("description"),
+  paymentDate: timestamp("payment_date").defaultNow().notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  user: one(users, {
+    fields: [payments.userId],
+    references: [users.id],
+  }),
+  creator: one(users, {
+    fields: [payments.createdBy],
+    references: [users.id],
+  }),
+}));
+
 // Schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -211,6 +233,11 @@ export const insertMatchStatsSchema = createInsertSchema(matchStats).omit({
   createdAt: true,
 });
 
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -219,3 +246,5 @@ export type InsertMatch = z.infer<typeof insertMatchSchema>;
 export type MatchStats = typeof matchStats.$inferSelect;
 export type InsertMatchStats = z.infer<typeof insertMatchStatsSchema>;
 export type UpdateUserStats = z.infer<typeof updateUserStatsSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
