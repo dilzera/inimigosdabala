@@ -38,13 +38,38 @@ import {
   ChevronRight,
   Swords,
   FileUp,
+  DollarSign,
+  Copy,
+  Check,
 } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 export function AppSidebar() {
   const { user } = useAuth();
   const [location] = useLocation();
+  const { toast } = useToast();
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  const copyToClipboard = async (text: string, linkType: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLink(linkType);
+      toast({
+        title: "Link copiado!",
+        description: "O link foi copiado para a área de transferência.",
+      });
+      setTimeout(() => setCopiedLink(null), 2000);
+    } catch (err) {
+      toast({
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar o link.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getInitials = (user: typeof userType) => {
     if (!user) return "?";
@@ -229,24 +254,36 @@ export function AppSidebar() {
                     <SidebarMenuSub>
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
-                          asChild
+                          className="justify-between cursor-pointer"
+                          onClick={() => copyToClipboard("https://discord.gg/2mXFJj88", "discord")}
                           data-testid="nav-discord"
                         >
-                          <a href="https://discord.gg" target="_blank" rel="noopener noreferrer">
+                          <div className="flex items-center gap-2">
                             <MessageCircle className="h-4 w-4" />
                             <span>Discord</span>
-                          </a>
+                          </div>
+                          {copiedLink === "discord" ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4 text-muted-foreground" />
+                          )}
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
-                          asChild
+                          className="justify-between cursor-pointer"
+                          onClick={() => copyToClipboard("https://chat.whatsapp.com/GzgiTtipgNX1sOPF3ybtYt", "whatsapp")}
                           data-testid="nav-whatsapp"
                         >
-                          <a href="https://wa.me" target="_blank" rel="noopener noreferrer">
+                          <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4" />
                             <span>WhatsApp</span>
-                          </a>
+                          </div>
+                          {copiedLink === "whatsapp" ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4 text-muted-foreground" />
+                          )}
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
@@ -327,6 +364,18 @@ export function AppSidebar() {
                             <Link href="/admin/import">
                               <FileUp className="h-4 w-4" />
                               <span>Importar Partida</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === "/admin/financeiro"}
+                            data-testid="nav-financeiro"
+                          >
+                            <Link href="/admin/financeiro">
+                              <DollarSign className="h-4 w-4" />
+                              <span>Financeiro</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
