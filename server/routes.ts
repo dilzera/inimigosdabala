@@ -110,6 +110,41 @@ export async function registerRoutes(
     }
   });
 
+  // Update current user profile (name, photo, steamId) - MUST be before /api/users/:id
+  app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, nickname, profileImageUrl, steamId64 } = req.body;
+      
+      // If linking steamId64, check if it already belongs to another user
+      if (steamId64) {
+        const existingUser = await storage.getUserBySteamId(steamId64);
+        
+        if (existingUser && existingUser.id !== userId) {
+          // Merge the existing steam user into current user
+          const mergedUser = await storage.mergeUsers(existingUser.id, userId);
+          if (mergedUser) {
+            return res.json(mergedUser);
+          }
+        }
+      }
+      
+      // Regular update
+      const updates: any = { updatedAt: new Date() };
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      if (nickname !== undefined) updates.nickname = nickname;
+      if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl;
+      if (steamId64 !== undefined) updates.steamId64 = steamId64;
+      
+      const user = await storage.updateUserStats(userId, updates);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Update user stats (admin only)
   app.patch('/api/users/:id', isAuthenticated, async (req: any, res) => {
     try {
@@ -387,41 +422,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching user match stats:", error);
       res.status(500).json({ message: "Failed to fetch user match stats" });
-    }
-  });
-
-  // Update current user profile (name, photo, steamId)
-  app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { firstName, lastName, nickname, profileImageUrl, steamId64 } = req.body;
-      
-      // If linking steamId64, check if it already belongs to another user
-      if (steamId64) {
-        const existingUser = await storage.getUserBySteamId(steamId64);
-        
-        if (existingUser && existingUser.id !== userId) {
-          // Merge the existing steam user into current user
-          const mergedUser = await storage.mergeUsers(existingUser.id, userId);
-          if (mergedUser) {
-            return res.json(mergedUser);
-          }
-        }
-      }
-      
-      // Regular update
-      const updates: any = { updatedAt: new Date() };
-      if (firstName !== undefined) updates.firstName = firstName;
-      if (lastName !== undefined) updates.lastName = lastName;
-      if (nickname !== undefined) updates.nickname = nickname;
-      if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl;
-      if (steamId64 !== undefined) updates.steamId64 = steamId64;
-      
-      const user = await storage.updateUserStats(userId, updates);
-      res.json(user);
-    } catch (error) {
-      console.error("Error updating user profile:", error);
-      res.status(500).json({ message: "Failed to update profile" });
     }
   });
 
