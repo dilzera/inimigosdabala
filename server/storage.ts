@@ -350,35 +350,85 @@ export class DatabaseStorage implements IStorage {
       .set({ userId: targetId })
       .where(eq(payments.userId, sourceId));
 
-    // Prepare merged stats
+    // Prepare merged stats - ALL statistics fields
+    const totalKills = (targetUser.totalKills || 0) + (sourceUser.totalKills || 0);
+    const totalDeaths = (targetUser.totalDeaths || 0) + (sourceUser.totalDeaths || 0);
+    const totalAssists = (targetUser.totalAssists || 0) + (sourceUser.totalAssists || 0);
+    const totalHeadshots = (targetUser.totalHeadshots || 0) + (sourceUser.totalHeadshots || 0);
+    const totalDamage = (targetUser.totalDamage || 0) + (sourceUser.totalDamage || 0);
+    const totalMatches = (targetUser.totalMatches || 0) + (sourceUser.totalMatches || 0);
+    const matchesWon = (targetUser.matchesWon || 0) + (sourceUser.matchesWon || 0);
+    const matchesLost = (targetUser.matchesLost || 0) + (sourceUser.matchesLost || 0);
+    const totalRoundsPlayed = (targetUser.totalRoundsPlayed || 0) + (sourceUser.totalRoundsPlayed || 0);
+    const roundsWon = (targetUser.roundsWon || 0) + (sourceUser.roundsWon || 0);
+    const totalMvps = (targetUser.totalMvps || 0) + (sourceUser.totalMvps || 0);
+    const total1v1Count = (targetUser.total1v1Count || 0) + (sourceUser.total1v1Count || 0);
+    const total1v1Wins = (targetUser.total1v1Wins || 0) + (sourceUser.total1v1Wins || 0);
+    const total1v2Count = (targetUser.total1v2Count || 0) + (sourceUser.total1v2Count || 0);
+    const total1v2Wins = (targetUser.total1v2Wins || 0) + (sourceUser.total1v2Wins || 0);
+    const totalEntryCount = (targetUser.totalEntryCount || 0) + (sourceUser.totalEntryCount || 0);
+    const totalEntryWins = (targetUser.totalEntryWins || 0) + (sourceUser.totalEntryWins || 0);
+    const total5ks = (targetUser.total5ks || 0) + (sourceUser.total5ks || 0);
+    const total4ks = (targetUser.total4ks || 0) + (sourceUser.total4ks || 0);
+    const total3ks = (targetUser.total3ks || 0) + (sourceUser.total3ks || 0);
+    const total2ks = (targetUser.total2ks || 0) + (sourceUser.total2ks || 0);
+    const totalFlashCount = (targetUser.totalFlashCount || 0) + (sourceUser.totalFlashCount || 0);
+    const totalFlashSuccesses = (targetUser.totalFlashSuccesses || 0) + (sourceUser.totalFlashSuccesses || 0);
+    const totalEnemiesFlashed = (targetUser.totalEnemiesFlashed || 0) + (sourceUser.totalEnemiesFlashed || 0);
+    const totalUtilityDamage = (targetUser.totalUtilityDamage || 0) + (sourceUser.totalUtilityDamage || 0);
+    const totalShotsFired = (targetUser.totalShotsFired || 0) + (sourceUser.totalShotsFired || 0);
+    const totalShotsOnTarget = (targetUser.totalShotsOnTarget || 0) + (sourceUser.totalShotsOnTarget || 0);
+
+    // Recalculate skill rating based on merged stats
+    const kd = totalDeaths > 0 ? totalKills / totalDeaths : totalKills;
+    const hsPercent = totalKills > 0 ? (totalHeadshots / totalKills) * 100 : 0;
+    const adr = totalRoundsPlayed > 0 ? totalDamage / totalRoundsPlayed : 0;
+    const winRate = totalMatches > 0 ? (matchesWon / totalMatches) * 100 : 50;
+    
+    // Rating formula: base 1000 + performance modifiers
+    const skillRating = Math.round(
+      1000 +
+      (kd - 1) * 200 +           // K/D impact
+      (hsPercent - 30) * 3 +     // HS% impact (30% is average)
+      (adr - 70) * 2 +           // ADR impact (70 is average)
+      (winRate - 50) * 4 +       // Win rate impact
+      totalMvps * 2 +            // MVP bonus
+      total5ks * 50 +            // ACE bonus
+      total4ks * 25 +            // 4K bonus
+      total3ks * 10 +            // 3K bonus
+      total1v1Wins * 5 +         // Clutch bonus
+      total1v2Wins * 15          // 1v2 clutch bonus
+    );
+
     const mergedStats = {
-      totalKills: (targetUser.totalKills || 0) + (sourceUser.totalKills || 0),
-      totalDeaths: (targetUser.totalDeaths || 0) + (sourceUser.totalDeaths || 0),
-      totalAssists: (targetUser.totalAssists || 0) + (sourceUser.totalAssists || 0),
-      totalHeadshots: (targetUser.totalHeadshots || 0) + (sourceUser.totalHeadshots || 0),
-      totalDamage: (targetUser.totalDamage || 0) + (sourceUser.totalDamage || 0),
-      totalMatches: (targetUser.totalMatches || 0) + (sourceUser.totalMatches || 0),
-      matchesWon: (targetUser.matchesWon || 0) + (sourceUser.matchesWon || 0),
-      matchesLost: (targetUser.matchesLost || 0) + (sourceUser.matchesLost || 0),
-      totalRoundsPlayed: (targetUser.totalRoundsPlayed || 0) + (sourceUser.totalRoundsPlayed || 0),
-      roundsWon: (targetUser.roundsWon || 0) + (sourceUser.roundsWon || 0),
-      totalMvps: (targetUser.totalMvps || 0) + (sourceUser.totalMvps || 0),
-      total1v1Count: (targetUser.total1v1Count || 0) + (sourceUser.total1v1Count || 0),
-      total1v1Wins: (targetUser.total1v1Wins || 0) + (sourceUser.total1v1Wins || 0),
-      total1v2Count: (targetUser.total1v2Count || 0) + (sourceUser.total1v2Count || 0),
-      total1v2Wins: (targetUser.total1v2Wins || 0) + (sourceUser.total1v2Wins || 0),
-      totalEntryCount: (targetUser.totalEntryCount || 0) + (sourceUser.totalEntryCount || 0),
-      totalEntryWins: (targetUser.totalEntryWins || 0) + (sourceUser.totalEntryWins || 0),
-      total5ks: (targetUser.total5ks || 0) + (sourceUser.total5ks || 0),
-      total4ks: (targetUser.total4ks || 0) + (sourceUser.total4ks || 0),
-      total3ks: (targetUser.total3ks || 0) + (sourceUser.total3ks || 0),
-      total2ks: (targetUser.total2ks || 0) + (sourceUser.total2ks || 0),
-      totalFlashCount: (targetUser.totalFlashCount || 0) + (sourceUser.totalFlashCount || 0),
-      totalFlashSuccesses: (targetUser.totalFlashSuccesses || 0) + (sourceUser.totalFlashSuccesses || 0),
-      totalEnemiesFlashed: (targetUser.totalEnemiesFlashed || 0) + (sourceUser.totalEnemiesFlashed || 0),
-      totalUtilityDamage: (targetUser.totalUtilityDamage || 0) + (sourceUser.totalUtilityDamage || 0),
-      totalShotsFired: (targetUser.totalShotsFired || 0) + (sourceUser.totalShotsFired || 0),
-      totalShotsOnTarget: (targetUser.totalShotsOnTarget || 0) + (sourceUser.totalShotsOnTarget || 0),
+      totalKills,
+      totalDeaths,
+      totalAssists,
+      totalHeadshots,
+      totalDamage,
+      totalMatches,
+      matchesWon,
+      matchesLost,
+      totalRoundsPlayed,
+      roundsWon,
+      totalMvps,
+      total1v1Count,
+      total1v1Wins,
+      total1v2Count,
+      total1v2Wins,
+      totalEntryCount,
+      totalEntryWins,
+      total5ks,
+      total4ks,
+      total3ks,
+      total2ks,
+      totalFlashCount,
+      totalFlashSuccesses,
+      totalEnemiesFlashed,
+      totalUtilityDamage,
+      totalShotsFired,
+      totalShotsOnTarget,
+      skillRating: Math.max(100, Math.min(3000, skillRating)), // Clamp between 100-3000
       nickname: targetUser.nickname || sourceUser.nickname,
     };
 
