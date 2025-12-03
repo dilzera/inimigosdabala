@@ -14,9 +14,17 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import AdminUsers from "@/pages/admin-users";
 
 function Router() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, isError } = useAuth();
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || isError) {
     return (
       <Switch>
         <Route path="/" component={Landing} />
@@ -57,9 +65,13 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isError } = useAuth();
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading) {
+    return <Router />;
+  }
+
+  if (!isAuthenticated || isError) {
     return <Router />;
   }
 

@@ -43,9 +43,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // Check if this is the first user - if so, make them admin
+    const existingUsers = await db.select({ id: users.id }).from(users).limit(1);
+    const isFirstUser = existingUsers.length === 0;
+    
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values({
+        ...userData,
+        isAdmin: isFirstUser ? true : (userData.isAdmin ?? false),
+      })
       .onConflictDoUpdate({
         target: users.id,
         set: {
@@ -54,6 +61,7 @@ export class DatabaseStorage implements IStorage {
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
+          // Preserve existing isAdmin status - don't overwrite it
         },
       })
       .returning();

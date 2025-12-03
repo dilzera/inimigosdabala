@@ -15,7 +15,8 @@ export async function registerRoutes(
   // Auth routes - Get current user (public endpoint - returns user if logged in, 401 if not)
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user?.claims?.sub) {
+      const isAuth = typeof req.isAuthenticated === 'function' ? req.isAuthenticated() : false;
+      if (!isAuth || !req.user?.claims?.sub) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       const userId = req.user.claims.sub;
