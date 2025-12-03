@@ -1,37 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Palette, Check, ExternalLink, Play } from "lucide-react";
 import tutorialVideo from "@assets/2025-11-14_13-30-54_1764764550063.mp4";
 
 export default function ServidorSkins() {
-  const comandosExtras = [
-    {
-      comando: "!ws",
-      descricao: "Abre o menu de skins de armas",
-    },
-    {
-      comando: "!knife",
-      descricao: "Abre o menu de facas",
-    },
-    {
-      comando: "!gloves",
-      descricao: "Abre o menu de luvas",
-    },
-    {
-      comando: "!agents",
-      descricao: "Abre o menu de agentes (personagens)",
-    },
-    {
-      comando: "!stickers",
-      descricao: "Abre o menu de adesivos",
-    },
-    {
-      comando: "!music",
-      descricao: "Abre o menu de kits de música",
-    },
-  ];
-
   const dicas = [
     "As skins são apenas visuais e não afetam o gameplay",
     "Suas escolhas de skins são salvas automaticamente",
@@ -102,51 +74,25 @@ export default function ServidorSkins() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Comandos no Servidor</CardTitle>
-            <CardDescription>
-              Use estes comandos no chat do jogo
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {comandosExtras.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-background/50 rounded-lg border"
-              >
-                <Badge variant="secondary" className="font-mono">
-                  {item.comando}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {item.descricao}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Dicas Importantes</CardTitle>
-            <CardDescription>
-              Informações úteis sobre o sistema de skins
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {dicas.map((dica, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-3 p-3 bg-background/50 rounded-lg border"
-              >
-                <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-sm">{dica}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Dicas Importantes</CardTitle>
+          <CardDescription>
+            Informações úteis sobre o sistema de skins
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {dicas.map((dica, index) => (
+            <div
+              key={index}
+              className="flex items-start gap-3 p-3 bg-background/50 rounded-lg border"
+            >
+              <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span className="text-sm">{dica}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }
