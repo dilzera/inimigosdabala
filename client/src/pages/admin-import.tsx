@@ -20,7 +20,13 @@ export default function AdminImport() {
   const importMutation = useMutation({
     mutationFn: async (data: { csvContent: string; map: string }) => {
       const response = await apiRequest("POST", "/api/matches/import", data);
-      return await response.json();
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw { status: response.status, ...result };
+      }
+      
+      return result;
     },
     onSuccess: (data: { matchId: string; playersProcessed: number }) => {
       toast({
@@ -32,12 +38,20 @@ export default function AdminImport() {
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro na Importação",
-        description: error.message || "Falha ao importar dados da partida.",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      if (error.status === 409) {
+        toast({
+          title: "Partida já importada",
+          description: error.message || "Esta partida já foi importada anteriormente.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Erro na Importação",
+          description: error.message || "Falha ao importar dados da partida.",
+          variant: "destructive",
+        });
+      }
     },
   });
 

@@ -232,32 +232,39 @@ export async function registerRoutes(
       const mapNumber = rows[0].mapnumber;
 
       // Check if this match already exists
-      let match = await storage.getMatchByExternalId(matchId, mapNumber);
+      const existingMatch = await storage.getMatchByExternalId(matchId, mapNumber);
       
-      if (!match) {
-        // Extract team names from player data
-        const teams = Array.from(new Set(rows.map(r => r.team)));
-        const team1Name = teams[0] || 'Time 1';
-        const team2Name = teams[1] || 'Time 2';
-
-        // Calculate scores based on kills (this is a simplification)
-        const team1Players = rows.filter(r => r.team === team1Name);
-        const team2Players = rows.filter(r => r.team === team2Name);
-        const team1Score = team1Players.reduce((sum, p) => sum + p.kills, 0);
-        const team2Score = team2Players.reduce((sum, p) => sum + p.kills, 0);
-
-        // Create match
-        match = await storage.createMatch({
-          externalMatchId: matchId,
-          mapNumber,
-          map,
-          team1Name,
-          team2Name,
-          team1Score: Math.round(team1Score / 5), // Normalize to approximate round wins
-          team2Score: Math.round(team2Score / 5),
-          date: new Date(),
+      if (existingMatch) {
+        return res.status(409).json({ 
+          message: "Esta partida já foi importada anteriormente.",
+          matchId: existingMatch.id,
+          map: existingMatch.map,
+          date: existingMatch.date
         });
       }
+
+      // Extract team names from player data
+      const teams = Array.from(new Set(rows.map(r => r.team)));
+      const team1Name = teams[0] || 'Time 1';
+      const team2Name = teams[1] || 'Time 2';
+
+      // Calculate scores based on kills (this is a simplification)
+      const team1Players = rows.filter(r => r.team === team1Name);
+      const team2Players = rows.filter(r => r.team === team2Name);
+      const team1Score = team1Players.reduce((sum, p) => sum + p.kills, 0);
+      const team2Score = team2Players.reduce((sum, p) => sum + p.kills, 0);
+
+      // Create match
+      const match = await storage.createMatch({
+        externalMatchId: matchId,
+        mapNumber,
+        map,
+        team1Name,
+        team2Name,
+        team1Score: Math.round(team1Score / 5), // Normalize to approximate round wins
+        team2Score: Math.round(team2Score / 5),
+        date: new Date(),
+      });
 
       // Process each player
       const usersToRecalculate: string[] = [];
