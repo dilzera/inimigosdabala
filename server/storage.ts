@@ -81,20 +81,35 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createPlayerFromSteam(steamId64: string, nickname: string): Promise<User> {
+  async createPlayerFromSteam(steamId64: string, playerName: string): Promise<User> {
+    // First check if user exists
+    const existingUser = await this.getUserBySteamId(steamId64);
+    
+    if (existingUser) {
+      // Update the nickname/firstName if not already set or if it's a default value
+      if (!existingUser.nickname || existingUser.nickname === existingUser.steamId64) {
+        const [updatedUser] = await db
+          .update(users)
+          .set({
+            nickname: playerName,
+            firstName: existingUser.firstName || playerName,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existingUser.id))
+          .returning();
+        return updatedUser;
+      }
+      return existingUser;
+    }
+    
+    // Create new user with steamId64 and name
     const [user] = await db
       .insert(users)
       .values({
+        id: `steam_${steamId64}`,
         steamId64,
-        nickname,
-        firstName: nickname,
-      })
-      .onConflictDoUpdate({
-        target: users.steamId64,
-        set: {
-          nickname,
-          updatedAt: new Date(),
-        },
+        nickname: playerName,
+        firstName: playerName,
       })
       .returning();
     return user;
