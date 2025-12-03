@@ -529,11 +529,38 @@ export async function registerRoutes(
         return res.status(400).json({ message: "A descrição não pode exceder 2000 caracteres" });
       }
 
+      let validatedAttachmentUrl: string | null = null;
+      let validatedAttachmentType: string | null = null;
+
+      if (attachmentUrl && typeof attachmentUrl === 'string') {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        
+        if (!attachmentType || !allowedTypes.includes(attachmentType)) {
+          return res.status(400).json({ message: "Tipo de arquivo não permitido. Use JPG, PNG, GIF ou WebP." });
+        }
+
+        if (!attachmentUrl.startsWith('data:image/')) {
+          return res.status(400).json({ message: "Formato de anexo inválido." });
+        }
+
+        const maxSizeBytes = 2 * 1024 * 1024;
+        const base64Data = attachmentUrl.split(',')[1];
+        if (base64Data) {
+          const sizeBytes = (base64Data.length * 3) / 4;
+          if (sizeBytes > maxSizeBytes) {
+            return res.status(400).json({ message: "O anexo deve ter no máximo 2MB." });
+          }
+        }
+
+        validatedAttachmentUrl = attachmentUrl;
+        validatedAttachmentType = attachmentType;
+      }
+
       const report = await storage.createReport({
         userId: isAnonymous ? null : userId,
         description,
-        attachmentUrl: attachmentUrl || null,
-        attachmentType: attachmentType || null,
+        attachmentUrl: validatedAttachmentUrl,
+        attachmentType: validatedAttachmentType,
         isAnonymous: isAnonymous || false,
         status: "pending",
       });

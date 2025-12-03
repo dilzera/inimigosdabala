@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { AlertTriangle, Shield, CheckCircle, Send, EyeOff, Info } from "lucide-react";
+import { AlertTriangle, Shield, CheckCircle, Send, EyeOff, Info, Upload, X, Image as ImageIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
 export default function Denuncias() {
   const { user } = useAuth();
@@ -17,9 +20,16 @@ export default function Denuncias() {
   const [description, setDescription] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [attachment, setAttachment] = useState<{ data: string; type: string; name: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const submitMutation = useMutation({
-    mutationFn: async (data: { description: string; isAnonymous: boolean }) => {
+    mutationFn: async (data: { 
+      description: string; 
+      isAnonymous: boolean;
+      attachmentUrl?: string;
+      attachmentType?: string;
+    }) => {
       const response = await apiRequest("POST", "/api/reports", data);
       const result = await response.json();
       
@@ -36,6 +46,7 @@ export default function Denuncias() {
       });
       setDescription("");
       setIsAnonymous(false);
+      setAttachment(null);
       setSubmitted(true);
     },
     onError: (error: any) => {
@@ -46,6 +57,46 @@ export default function Denuncias() {
       });
     },
   });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O arquivo deve ter no máximo 2MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Tipo inválido",
+        description: "Apenas imagens são permitidas (JPG, PNG, GIF).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAttachment({
+        data: reader.result as string,
+        type: file.type,
+        name: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAttachment = () => {
+    setAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,13 +119,29 @@ export default function Denuncias() {
       return;
     }
     
-    submitMutation.mutate({ description, isAnonymous });
+    const payload: { 
+      description: string; 
+      isAnonymous: boolean;
+      attachmentUrl?: string;
+      attachmentType?: string;
+    } = { 
+      description, 
+      isAnonymous 
+    };
+
+    if (attachment) {
+      payload.attachmentUrl = attachment.data;
+      payload.attachmentType = attachment.type;
+    }
+    
+    submitMutation.mutate(payload);
   };
 
   const handleNewReport = () => {
     setSubmitted(false);
     setDescription("");
     setIsAnonymous(false);
+    setAttachment(null);
   };
 
   if (!user) {
@@ -166,6 +233,61 @@ export default function Denuncias() {
               </div>
             </div>
 
+            <div className="space-y-3">
+              <Label>Anexar Evidência (opcional)</Label>
+              <div className="flex flex-col gap-3">
+                {!attachment ? (
+                  <div 
+                    className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover-elevate transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="button-upload-area"
+                  >
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Clique para anexar uma imagem
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      JPG, PNG ou GIF (máx. 2MB)
+                    </p>
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      data-testid="input-file"
+                    />
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-3 flex items-center gap-3 bg-muted/30">
+                    <div className="w-12 h-12 rounded bg-muted flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={attachment.data} 
+                        alt="Anexo" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{attachment.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        <ImageIcon className="h-3 w-3 inline mr-1" />
+                        Imagem anexada
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={removeAttachment}
+                      data-testid="button-remove-attachment"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-start space-x-3 p-4 bg-muted/50 rounded-lg">
               <Checkbox
                 id="anonymous"
@@ -184,7 +306,7 @@ export default function Denuncias() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex items-center justify-between pt-4 border-t gap-4 flex-wrap">
               <p className="text-sm text-muted-foreground">
                 {isAnonymous ? (
                   <span className="flex items-center gap-1 text-yellow-500">

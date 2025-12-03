@@ -17,7 +17,9 @@ import {
   EyeOff,
   MessageSquare,
   Trash2,
-  Filter
+  Filter,
+  Image as ImageIcon,
+  Paperclip
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -282,6 +284,13 @@ export default function AdminDenuncias() {
                 <CardContent className="space-y-4">
                   <p className="text-sm line-clamp-3">{report.description}</p>
                   
+                  {report.attachmentUrl && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid={`indicator-attachment-${report.id}`}>
+                      <Paperclip className="h-3 w-3" />
+                      <span>Contém anexo</span>
+                    </div>
+                  )}
+                  
                   {report.adminNotes && (
                     <div className="p-2 bg-muted/50 rounded-lg">
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
@@ -375,6 +384,23 @@ export default function AdminDenuncias() {
                   {selectedReport.description}
                 </div>
               </div>
+              
+              {selectedReport.attachmentUrl && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Anexo
+                  </h4>
+                  <div className="border rounded-lg p-2 bg-muted/30">
+                    <img 
+                      src={selectedReport.attachmentUrl} 
+                      alt="Anexo da denúncia"
+                      className="max-w-full max-h-[300px] rounded object-contain mx-auto"
+                      data-testid="img-attachment"
+                    />
+                  </div>
+                </div>
+              )}
               
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">Notas da Administração</h4>
