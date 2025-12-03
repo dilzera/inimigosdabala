@@ -444,7 +444,10 @@ export async function registerRoutes(
   // Merge two users (admin only)
   app.post('/api/users/merge', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.user.claims.isAdmin) {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
