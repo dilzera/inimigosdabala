@@ -1,9 +1,41 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Star, Crown, ExternalLink } from "lucide-react";
+import { Heart, Star, Crown, ExternalLink, DollarSign, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { User, Payment } from "@shared/schema";
 
 export default function Patrocinadores() {
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: payments = [] } = useQuery<Payment[]>({
+    queryKey: ["/api/payments"],
+  });
+
+  const getUserById = (id: string) => users.find(u => u.id === id);
+
+  const contributorStats = payments.reduce((acc, payment) => {
+    const userId = payment.userId;
+    if (!acc[userId]) {
+      acc[userId] = { total: 0, count: 0 };
+    }
+    acc[userId].total += payment.amount || 0;
+    acc[userId].count += 1;
+    return acc;
+  }, {} as Record<string, { total: number; count: number }>);
+
+  const sortedContributors = Object.entries(contributorStats)
+    .map(([userId, stats]) => ({
+      user: getUserById(userId),
+      ...stats,
+    }))
+    .filter(c => c.user)
+    .sort((a, b) => b.total - a.total);
+
+  const totalArrecadado = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const patrocinadores = [
     {
       nivel: "Diamante",
@@ -90,6 +122,65 @@ export default function Patrocinadores() {
         Agradecemos a todos os patrocinadores que ajudam a manter a comunidade
         Inimigos da Bala ativa e funcionando!
       </p>
+
+      {sortedContributors.length > 0 && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <DollarSign className="h-6 w-6 text-green-500" />
+              <span>Contribuintes da Comunidade</span>
+              <Badge variant="outline" className="ml-auto">
+                Total: R$ {totalArrecadado.toFixed(2)}
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Agradecemos aos jogadores que contribuem financeiramente para a comunidade
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {sortedContributors.map((contributor, index) => (
+                <div
+                  key={contributor.user?.id}
+                  className="flex items-center gap-4 p-4 bg-background/50 rounded-lg border"
+                  data-testid={`contributor-${contributor.user?.id}`}
+                >
+                  <div className="relative">
+                    {index === 0 && (
+                      <Crown className="absolute -top-2 -right-2 h-5 w-5 text-yellow-400 z-10" />
+                    )}
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={contributor.user?.profileImageUrl || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {contributor.user?.nickname?.slice(0, 2).toUpperCase() || 
+                         contributor.user?.firstName?.[0] || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">
+                      {contributor.user?.nickname || contributor.user?.firstName || "Jogador"}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {contributor.count} contribuição{contributor.count > 1 ? "ões" : ""}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-green-500">
+                      R$ {contributor.total.toFixed(2)}
+                    </div>
+                    {index === 0 && (
+                      <Badge variant="default" className="text-xs">
+                        Top Contribuinte
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6">
         {patrocinadores.map((categoria) => (
