@@ -382,5 +382,113 @@ export async function registerRoutes(
     }
   });
 
+  // Update current user profile (name, photo, steamId)
+  app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, nickname, profileImageUrl, steamId64 } = req.body;
+      
+      // If linking steamId64, check if it already belongs to another user
+      if (steamId64) {
+        const existingUser = await storage.getUserBySteamId(steamId64);
+        
+        if (existingUser && existingUser.id !== userId) {
+          // Merge the existing steam user into current user
+          const mergedUser = await storage.mergeUsers(existingUser.id, userId);
+          if (mergedUser) {
+            return res.json(mergedUser);
+          }
+        }
+      }
+      
+      // Regular update
+      const updates: any = { updatedAt: new Date() };
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      if (nickname !== undefined) updates.nickname = nickname;
+      if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl;
+      if (steamId64 !== undefined) updates.steamId64 = steamId64;
+      
+      const user = await storage.updateUserStats(userId, updates);
+      res.json(user);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Payment routes
+  app.get('/api/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const payments = await storage.getAllPayments();
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.get('/api/users/:id/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const payments = await storage.getPaymentsByUser(req.params.id);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching user payments:", error);
+      res.status(500).json({ message: "Failed to fetch user payments" });
+    }
+  });
+
+  app.post('/api/payments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const { userId: paymentUserId, amount, description, paymentDate } = req.body;
+
+      if (!paymentUserId || typeof amount !== 'number') {
+        return res.status(400).json({ message: "User ID and amount are required" });
+      }
+
+      const payment = await storage.createPayment({
+        userId: paymentUserId,
+        amount,
+        description: description || '',
+        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+        createdBy: userId,
+      });
+
+      res.json(payment);
+    } catch (error) {
+      console.error("Error creating payment:", error);
+      res.status(500).json({ message: "Failed to create payment" });
+    }
+  });
+
+  app.delete('/api/payments/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const deleted = await storage.deletePayment(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Payment not found" });
+      }
+
+      res.json({ message: "Payment deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting payment:", error);
+      res.status(500).json({ message: "Failed to delete payment" });
+    }
+  });
+
   return httpServer;
 }
