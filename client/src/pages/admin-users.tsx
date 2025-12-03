@@ -38,6 +38,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { User, UpdateUserStats } from "@shared/schema";
 import {
   Users,
@@ -47,6 +54,8 @@ import {
   ArrowLeft,
   Save,
   Shield,
+  Link2,
+  GitMerge,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -56,7 +65,10 @@ export default function AdminUsers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
-  const [editForm, setEditForm] = useState<UpdateUserStats>({});
+  const [editForm, setEditForm] = useState<UpdateUserStats & { steamId64?: string }>({});
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [sourceUserId, setSourceUserId] = useState("");
+  const [targetUserId, setTargetUserId] = useState("");
 
   const { data: allUsers, isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -115,6 +127,30 @@ export default function AdminUsers() {
     },
   });
 
+  const mergeUsersMutation = useMutation({
+    mutationFn: async ({ sourceUserId, targetUserId }: { sourceUserId: string; targetUserId: string }) => {
+      const response = await apiRequest("POST", "/api/users/merge", { sourceUserId, targetUserId });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ 
+        title: "Usuários mesclados com sucesso!",
+        description: `Estatísticas transferidas para ${data.user?.nickname || data.user?.firstName || "o usuário de destino"}.`
+      });
+      setMergeDialogOpen(false);
+      setSourceUserId("");
+      setTargetUserId("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao mesclar usuários",
+        description: error.message || "Tente novamente mais tarde.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!user?.isAdmin) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -160,6 +196,7 @@ export default function AdminUsers() {
     setEditingUser(u);
     setEditForm({
       nickname: u.nickname || "",
+      steamId64: u.steamId64 || "",
       totalKills: u.totalKills,
       totalDeaths: u.totalDeaths,
       totalAssists: u.totalAssists,
@@ -173,6 +210,18 @@ export default function AdminUsers() {
       skillRating: u.skillRating,
       isAdmin: u.isAdmin,
     });
+  };
+
+  const handleMergeUsers = () => {
+    if (!sourceUserId || !targetUserId) {
+      toast({
+        title: "Selecione os usuários",
+        description: "Você precisa selecionar o usuário de origem e o de destino.",
+        variant: "destructive",
+      });
+      return;
+    }
+    mergeUsersMutation.mutate({ sourceUserId, targetUserId });
   };
 
   const handleEditSubmit = () => {
@@ -211,15 +260,25 @@ export default function AdminUsers() {
             <Users className="h-5 w-5 text-primary" />
             Jogadores ({filteredUsers.length})
           </CardTitle>
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar jogadores..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search-users"
-            />
+          <div className="flex items-center gap-4 flex-wrap">
+            <Button 
+              variant="outline" 
+              onClick={() => setMergeDialogOpen(true)}
+              data-testid="button-merge-users"
+            >
+              <GitMerge className="h-4 w-4 mr-2" />
+              Mesclar Usuários
+            </Button>
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar jogadores..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-users"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -390,6 +449,25 @@ export default function AdminUsers() {
                     data-testid="input-skill-rating"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="steamId64" className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  SteamID64
+                </Label>
+                <Input
+                  id="steamId64"
+                  placeholder="76561198000000000"
+                  value={editForm.steamId64 || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, steamId64: e.target.value })
+                  }
+                  data-testid="input-steamid64"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Identificador único do Steam. Formato: 17 dígitos começando com 7656119.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -626,6 +704,105 @@ export default function AdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitMerge className="h-5 w-5" />
+              Mesclar Usuários
+            </DialogTitle>
+            <DialogDescription>
+              Transfira todas as estatísticas e partidas de um usuário para outro.
+              O usuário de origem será excluído após a mesclagem.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Usuário de Origem (será excluído)</Label>
+              <Select value={sourceUserId} onValueChange={setSourceUserId}>
+                <SelectTrigger data-testid="select-source-user">
+                  <SelectValue placeholder="Selecione o usuário de origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter((u) => u.id !== targetUserId)
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.nickname || u.firstName || u.email || u.id}
+                        {u.steamId64 && ` (${u.steamId64})`}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {sourceUserId && (
+                <p className="text-xs text-muted-foreground">
+                  Stats: {users.find((u) => u.id === sourceUserId)?.totalKills || 0} kills, {" "}
+                  {users.find((u) => u.id === sourceUserId)?.totalMatches || 0} partidas
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Usuário de Destino (receberá as stats)</Label>
+              <Select value={targetUserId} onValueChange={setTargetUserId}>
+                <SelectTrigger data-testid="select-target-user">
+                  <SelectValue placeholder="Selecione o usuário de destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter((u) => u.id !== sourceUserId)
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.nickname || u.firstName || u.email || u.id}
+                        {u.steamId64 && ` (${u.steamId64})`}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {targetUserId && (
+                <p className="text-xs text-muted-foreground">
+                  Stats: {users.find((u) => u.id === targetUserId)?.totalKills || 0} kills, {" "}
+                  {users.find((u) => u.id === targetUserId)?.totalMatches || 0} partidas
+                </p>
+              )}
+            </div>
+
+            {sourceUserId && targetUserId && (
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                  <strong>Atenção:</strong> Todas as estatísticas e partidas de{" "}
+                  <strong>
+                    {users.find((u) => u.id === sourceUserId)?.nickname ||
+                      users.find((u) => u.id === sourceUserId)?.firstName ||
+                      "usuário origem"}
+                  </strong>{" "}
+                  serão transferidas para{" "}
+                  <strong>
+                    {users.find((u) => u.id === targetUserId)?.nickname ||
+                      users.find((u) => u.id === targetUserId)?.firstName ||
+                      "usuário destino"}
+                  </strong>
+                  . O usuário de origem será excluído.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMergeDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleMergeUsers}
+              disabled={mergeUsersMutation.isPending || !sourceUserId || !targetUserId}
+              data-testid="button-confirm-merge"
+            >
+              <GitMerge className="h-4 w-4 mr-2" />
+              {mergeUsersMutation.isPending ? "Mesclando..." : "Mesclar Usuários"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

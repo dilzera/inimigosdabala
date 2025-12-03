@@ -441,6 +441,39 @@ export async function registerRoutes(
     }
   });
 
+  // Merge two users (admin only)
+  app.post('/api/users/merge', isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.user.claims.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { sourceUserId, targetUserId } = req.body;
+
+      if (!sourceUserId || !targetUserId) {
+        return res.status(400).json({ message: "sourceUserId e targetUserId são obrigatórios" });
+      }
+
+      if (sourceUserId === targetUserId) {
+        return res.status(400).json({ message: "Não é possível mesclar um usuário consigo mesmo" });
+      }
+
+      const mergedUser = await storage.mergeUsers(sourceUserId, targetUserId);
+
+      if (!mergedUser) {
+        return res.status(404).json({ message: "Um ou ambos os usuários não foram encontrados" });
+      }
+
+      res.json({ 
+        message: "Usuários mesclados com sucesso!", 
+        user: mergedUser 
+      });
+    } catch (error) {
+      console.error("Error merging users:", error);
+      res.status(500).json({ message: "Erro ao mesclar usuários" });
+    }
+  });
+
   // Payment routes
   app.get('/api/payments', isAuthenticated, async (req: any, res) => {
     try {
