@@ -3,6 +3,7 @@ import {
   sessions,
   matches,
   matchStats,
+  payments,
   type User,
   type UpsertUser,
   type Match,
@@ -10,6 +11,8 @@ import {
   type MatchStats,
   type InsertMatchStats,
   type UpdateUserStats,
+  type Payment,
+  type InsertPayment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
@@ -37,6 +40,15 @@ export interface IStorage {
   getMatchStats(matchId: string): Promise<MatchStats[]>;
   getUserMatchStats(userId: string): Promise<MatchStats[]>;
   createMatchStats(stats: InsertMatchStats): Promise<MatchStats>;
+  
+  // Payment operations
+  getAllPayments(): Promise<Payment[]>;
+  getPaymentsByUser(userId: string): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  deletePayment(id: string): Promise<boolean>;
+  
+  // User merge operation
+  mergeUsers(sourceId: string, targetId: string): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -253,6 +265,95 @@ export class DatabaseStorage implements IStorage {
   async createMatchStats(stats: InsertMatchStats): Promise<MatchStats> {
     const [newStats] = await db.insert(matchStats).values(stats).returning();
     return newStats;
+  }
+
+  // Payment operations
+  async getAllPayments(): Promise<Payment[]> {
+    return await db.select().from(payments);
+  }
+
+  async getPaymentsByUser(userId: string): Promise<Payment[]> {
+    return await db.select().from(payments).where(eq(payments.userId, userId));
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [newPayment] = await db.insert(payments).values(payment).returning();
+    return newPayment;
+  }
+
+  async deletePayment(id: string): Promise<boolean> {
+    const result = await db.delete(payments).where(eq(payments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Merge users: transfer all data from source to target and delete source
+  async mergeUsers(sourceId: string, targetId: string): Promise<User | undefined> {
+    const sourceUser = await this.getUser(sourceId);
+    const targetUser = await this.getUser(targetId);
+    
+    if (!sourceUser || !targetUser) {
+      return undefined;
+    }
+
+    // Transfer match stats from source to target
+    await db
+      .update(matchStats)
+      .set({ userId: targetId })
+      .where(eq(matchStats.userId, sourceId));
+
+    // Transfer payments from source to target
+    await db
+      .update(payments)
+      .set({ userId: targetId })
+      .where(eq(payments.userId, sourceId));
+
+    // Merge aggregated stats
+    const mergedStats = {
+      totalKills: (targetUser.totalKills || 0) + (sourceUser.totalKills || 0),
+      totalDeaths: (targetUser.totalDeaths || 0) + (sourceUser.totalDeaths || 0),
+      totalAssists: (targetUser.totalAssists || 0) + (sourceUser.totalAssists || 0),
+      totalHeadshots: (targetUser.totalHeadshots || 0) + (sourceUser.totalHeadshots || 0),
+      totalDamage: (targetUser.totalDamage || 0) + (sourceUser.totalDamage || 0),
+      totalMatches: (targetUser.totalMatches || 0) + (sourceUser.totalMatches || 0),
+      matchesWon: (targetUser.matchesWon || 0) + (sourceUser.matchesWon || 0),
+      matchesLost: (targetUser.matchesLost || 0) + (sourceUser.matchesLost || 0),
+      totalRoundsPlayed: (targetUser.totalRoundsPlayed || 0) + (sourceUser.totalRoundsPlayed || 0),
+      roundsWon: (targetUser.roundsWon || 0) + (sourceUser.roundsWon || 0),
+      totalMvps: (targetUser.totalMvps || 0) + (sourceUser.totalMvps || 0),
+      total1v1Count: (targetUser.total1v1Count || 0) + (sourceUser.total1v1Count || 0),
+      total1v1Wins: (targetUser.total1v1Wins || 0) + (sourceUser.total1v1Wins || 0),
+      total1v2Count: (targetUser.total1v2Count || 0) + (sourceUser.total1v2Count || 0),
+      total1v2Wins: (targetUser.total1v2Wins || 0) + (sourceUser.total1v2Wins || 0),
+      totalEntryCount: (targetUser.totalEntryCount || 0) + (sourceUser.totalEntryCount || 0),
+      totalEntryWins: (targetUser.totalEntryWins || 0) + (sourceUser.totalEntryWins || 0),
+      total5ks: (targetUser.total5ks || 0) + (sourceUser.total5ks || 0),
+      total4ks: (targetUser.total4ks || 0) + (sourceUser.total4ks || 0),
+      total3ks: (targetUser.total3ks || 0) + (sourceUser.total3ks || 0),
+      total2ks: (targetUser.total2ks || 0) + (sourceUser.total2ks || 0),
+      totalFlashCount: (targetUser.totalFlashCount || 0) + (sourceUser.totalFlashCount || 0),
+      totalFlashSuccesses: (targetUser.totalFlashSuccesses || 0) + (sourceUser.totalFlashSuccesses || 0),
+      totalEnemiesFlashed: (targetUser.totalEnemiesFlashed || 0) + (sourceUser.totalEnemiesFlashed || 0),
+      totalUtilityDamage: (targetUser.totalUtilityDamage || 0) + (sourceUser.totalUtilityDamage || 0),
+      totalShotsFired: (targetUser.totalShotsFired || 0) + (sourceUser.totalShotsFired || 0),
+      totalShotsOnTarget: (targetUser.totalShotsOnTarget || 0) + (sourceUser.totalShotsOnTarget || 0),
+      steamId64: sourceUser.steamId64 || targetUser.steamId64,
+      nickname: sourceUser.nickname || targetUser.nickname,
+    };
+
+    // Update target user with merged stats
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        ...mergedStats,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, targetId))
+      .returning();
+
+    // Delete source user
+    await db.delete(users).where(eq(users.id, sourceId));
+
+    return updatedUser;
   }
 }
 
