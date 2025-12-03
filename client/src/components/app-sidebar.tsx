@@ -54,18 +54,45 @@ export function AppSidebar() {
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const copyToClipboard = async (text: string, linkType: string) => {
+    let copied = false;
+    
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch (err) {
+      copied = false;
+    }
+    
+    if (!copied) {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const result = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        copied = result;
+      } catch (err) {
+        copied = false;
+      }
+    }
+    
+    if (copied) {
       setCopiedLink(linkType);
       toast({
         title: "Link copiado!",
         description: "O link foi copiado para a área de transferência.",
       });
       setTimeout(() => setCopiedLink(null), 2000);
-    } catch (err) {
+    } else {
       toast({
         title: "Erro ao copiar",
-        description: "Não foi possível copiar o link.",
+        description: `Copie manualmente: ${text}`,
         variant: "destructive",
       });
     }
@@ -256,16 +283,16 @@ export function AppSidebar() {
                         <SidebarMenuSubButton
                           className="justify-between cursor-pointer"
                           onClick={() => copyToClipboard("https://discord.gg/2mXFJj88", "discord")}
-                          data-testid="nav-discord"
+                          data-testid="button-copy-discord"
                         >
                           <div className="flex items-center gap-2">
                             <MessageCircle className="h-4 w-4" />
                             <span>Discord</span>
                           </div>
                           {copiedLink === "discord" ? (
-                            <Check className="h-4 w-4 text-green-500" />
+                            <Check className="h-4 w-4 text-green-500" data-testid="icon-copied-discord" />
                           ) : (
-                            <Copy className="h-4 w-4 text-muted-foreground" />
+                            <Copy className="h-4 w-4 text-muted-foreground" data-testid="icon-copy-discord" />
                           )}
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
@@ -273,16 +300,16 @@ export function AppSidebar() {
                         <SidebarMenuSubButton
                           className="justify-between cursor-pointer"
                           onClick={() => copyToClipboard("https://chat.whatsapp.com/GzgiTtipgNX1sOPF3ybtYt", "whatsapp")}
-                          data-testid="nav-whatsapp"
+                          data-testid="button-copy-whatsapp"
                         >
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4" />
                             <span>WhatsApp</span>
                           </div>
                           {copiedLink === "whatsapp" ? (
-                            <Check className="h-4 w-4 text-green-500" />
+                            <Check className="h-4 w-4 text-green-500" data-testid="icon-copied-whatsapp" />
                           ) : (
-                            <Copy className="h-4 w-4 text-muted-foreground" />
+                            <Copy className="h-4 w-4 text-muted-foreground" data-testid="icon-copy-whatsapp" />
                           )}
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

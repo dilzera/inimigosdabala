@@ -49,11 +49,11 @@ export default function AdminFinanceiro() {
   const [description, setDescription] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
+  const { data: users = [], isLoading: usersLoading, isError: usersError } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
 
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery<Payment[]>({
+  const { data: payments = [], isLoading: paymentsLoading, isError: paymentsError } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
   });
 
@@ -114,9 +114,18 @@ export default function AdminFinanceiro() {
       });
       return;
     }
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast({
+        title: "Erro",
+        description: "Informe um valor válido maior que zero.",
+        variant: "destructive",
+      });
+      return;
+    }
     createPaymentMutation.mutate({
       userId: selectedUserId,
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       description,
       paymentDate,
     });
@@ -238,50 +247,76 @@ export default function AdminFinanceiro() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Arrecadado</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              R$ {totalPayments.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {payments.length} pagamentos registrados
-            </p>
-          </CardContent>
-        </Card>
+      {paymentsLoading || usersLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" data-testid="loading-stats">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <div className="h-4 w-24 bg-muted animate-pulse rounded"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-32 bg-muted animate-pulse rounded mb-2"></div>
+                <div className="h-3 w-20 bg-muted animate-pulse rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : paymentsError || usersError ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" data-testid="error-stats">
+          <Card className="md:col-span-2 lg:col-span-3">
+            <CardContent className="pt-6">
+              <div className="text-center text-destructive py-4">
+                Erro ao carregar estatísticas. Tente novamente.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" data-testid="stats-cards">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Arrecadado</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500" data-testid="text-total-amount">
+                R$ {totalPayments.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {payments.length} pagamentos registrados
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contribuintes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{uniquePayers}</div>
-            <p className="text-xs text-muted-foreground">
-              jogadores únicos
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Contribuintes</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-unique-payers">{uniquePayers}</div>
+              <p className="text-xs text-muted-foreground">
+                jogadores únicos
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Média por Pagamento</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              R$ {payments.length > 0 ? (totalPayments / payments.length).toFixed(2) : "0.00"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              valor médio
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Média por Pagamento</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="text-average-amount">
+                R$ {payments.length > 0 ? (totalPayments / payments.length).toFixed(2) : "0.00"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                valor médio
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -292,11 +327,15 @@ export default function AdminFinanceiro() {
         </CardHeader>
         <CardContent>
           {paymentsLoading || usersLoading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-8" data-testid="loading-payments">
               <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
             </div>
+          ) : paymentsError || usersError ? (
+            <div className="text-center py-8 text-destructive" data-testid="error-payments">
+              Erro ao carregar pagamentos. Tente novamente.
+            </div>
           ) : payments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground" data-testid="empty-payments">
               Nenhum pagamento registrado ainda.
             </div>
           ) : (

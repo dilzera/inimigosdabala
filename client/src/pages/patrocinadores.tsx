@@ -7,13 +7,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { User, Payment } from "@shared/schema";
 
 export default function Patrocinadores() {
-  const { data: users = [] } = useQuery<User[]>({
+  const { data: users = [], isLoading: usersLoading, isError: usersError } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
 
-  const { data: payments = [] } = useQuery<Payment[]>({
+  const { data: payments = [], isLoading: paymentsLoading, isError: paymentsError } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
   });
+
+  const isLoading = usersLoading || paymentsLoading;
+  const isError = usersError || paymentsError;
 
   const getUserById = (id: string) => users.find(u => u.id === id);
 
@@ -123,21 +126,35 @@ export default function Patrocinadores() {
         Inimigos da Bala ativa e funcionando!
       </p>
 
-      {sortedContributors.length > 0 && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <DollarSign className="h-6 w-6 text-green-500" />
-              <span>Contribuintes da Comunidade</span>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            <DollarSign className="h-6 w-6 text-green-500" />
+            <span>Contribuintes da Comunidade</span>
+            {!isLoading && !isError && sortedContributors.length > 0 && (
               <Badge variant="outline" className="ml-auto">
                 Total: R$ {totalArrecadado.toFixed(2)}
               </Badge>
-            </CardTitle>
-            <CardDescription>
-              Agradecemos aos jogadores que contribuem financeiramente para a comunidade
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            )}
+          </CardTitle>
+          <CardDescription>
+            Agradecemos aos jogadores que contribuem financeiramente para a comunidade
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-8" data-testid="loading-contributors">
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            </div>
+          ) : isError ? (
+            <div className="text-center py-8 text-destructive" data-testid="error-contributors">
+              Erro ao carregar contribuintes. Tente novamente.
+            </div>
+          ) : sortedContributors.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground" data-testid="empty-contributors">
+              Nenhuma contribuição registrada ainda. Seja o primeiro!
+            </div>
+          ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {sortedContributors.map((contributor, index) => (
                 <div
@@ -178,9 +195,9 @@ export default function Patrocinadores() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6">
         {patrocinadores.map((categoria) => (
