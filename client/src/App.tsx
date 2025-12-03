@@ -12,13 +12,29 @@ import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AdminUsers from "@/pages/admin-users";
+import MixEscolherTime from "@/pages/mix-escolher-time";
+import Perfil from "@/pages/perfil";
+import Rankings from "@/pages/rankings";
+import ServidorComandos from "@/pages/servidor-comandos";
+import ServidorMapas from "@/pages/servidor-mapas";
+import ServidorSkins from "@/pages/servidor-skins";
+import ServidorSteamId from "@/pages/servidor-steamid";
+import Patrocinadores from "@/pages/patrocinadores";
+import PartidasMinhas from "@/pages/partidas-minhas";
+import PartidasTodas from "@/pages/partidas-todas";
+import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
   const { user, isAuthenticated, isLoading, isError } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <img 
+          src={logoUrl} 
+          alt="Inimigos da Bala" 
+          className="h-24 w-24 rounded-lg object-contain animate-pulse"
+        />
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
     );
@@ -36,6 +52,16 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={user?.isAdmin ? AdminDashboard : Dashboard} />
+      <Route path="/perfil" component={Perfil} />
+      <Route path="/mix/escolher-time" component={MixEscolherTime} />
+      <Route path="/rankings" component={Rankings} />
+      <Route path="/servidor/comandos" component={ServidorComandos} />
+      <Route path="/servidor/mapas" component={ServidorMapas} />
+      <Route path="/servidor/skins" component={ServidorSkins} />
+      <Route path="/servidor/steamid" component={ServidorSteamId} />
+      <Route path="/patrocinadores" component={Patrocinadores} />
+      <Route path="/partidas/minhas" component={PartidasMinhas} />
+      <Route path="/partidas/todas" component={PartidasTodas} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route component={NotFound} />
     </Switch>
@@ -44,7 +70,7 @@ function Router() {
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const style = {
-    "--sidebar-width": "16rem",
+    "--sidebar-width": "18rem",
     "--sidebar-width-icon": "3rem",
   };
 
@@ -55,6 +81,14 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between gap-2 p-3 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex items-center gap-2">
+              <img 
+                src={logoUrl} 
+                alt="Inimigos da Bala" 
+                className="h-8 w-8 rounded object-contain"
+              />
+              <span className="font-semibold hidden sm:inline">Inimigos da Bala</span>
+            </div>
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-6">{children}</main>

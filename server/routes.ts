@@ -31,16 +31,9 @@ export async function registerRoutes(
     }
   });
 
-  // Get all users (admin only)
+  // Get all users (for rankings, mix, etc - accessible to all authenticated users)
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const currentUser = await storage.getUser(userId);
-      
-      if (!currentUser?.isAdmin) {
-        return res.status(403).json({ message: "Forbidden - Admin access required" });
-      }
-
       const users = await storage.getAllUsers();
       res.json(users);
     } catch (error) {

@@ -1,12 +1,59 @@
-# CS Stats Manager
+# Inimigos da Bala
 
 ## Overview
 
-CS Stats Manager is a Counter-Strike match statistics management system designed for friend groups. The application tracks player performance metrics, manages user profiles, and provides both player and administrative dashboards. Built as a full-stack TypeScript application, it combines a React frontend with an Express backend, using PostgreSQL for data persistence and Replit's OpenID Connect for authentication.
+Inimigos da Bala is a Counter-Strike 2 community management system designed for friend groups. The application tracks player performance metrics, manages user profiles, provides player rankings, team balancing (MIX), server information, and administrative dashboards. Built as a full-stack TypeScript application with Portuguese language interface, it combines a React frontend with an Express backend, using PostgreSQL for data persistence and Replit's OpenID Connect for authentication.
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language
+- Language: Portuguese (Brazil)
+- Theme: CS-themed dark design with orange accents
+
+## Application Structure
+
+### Main Menu Structure
+The sidebar navigation includes the following sections:
+
+1. **MIX** (Collapsible)
+   - Escolher Time do Mix - Team balancing for matches
+
+2. **Perfil de Usuário** - User profile with personal stats
+
+3. **Melhores Jogadores** - Player rankings with multiple categories
+
+4. **Servidor** (Collapsible)
+   - Comandos do Servidor - Server commands reference
+   - Mapas de Treino - Training maps with Workshop links
+   - Como Colocar as Skins - Skin customization guide
+   - SteamID64 - How to get SteamID64
+
+5. **Patrocinadores** - Sponsors page
+
+6. **Links** (Collapsible)
+   - Discord - External link
+   - WhatsApp - External link
+
+7. **Partidas** (Collapsible)
+   - Jogadas por você - User's match history
+   - Todas - All matches history
+
+8. **Painel Admin** (Admin only, Collapsible)
+   - Gerenciar Usuários - User management
+
+### Page Routes
+- `/` - Main dashboard (Admin: AdminDashboard, Player: Dashboard)
+- `/perfil` - User profile page
+- `/mix/escolher-time` - Team selection for MIX
+- `/rankings` - Player leaderboards
+- `/servidor/comandos` - Server commands
+- `/servidor/mapas` - Training maps
+- `/servidor/skins` - Skin guide
+- `/servidor/steamid` - SteamID64 guide
+- `/patrocinadores` - Sponsors page
+- `/partidas/minhas` - User's matches
+- `/partidas/todas` - All matches
+- `/admin/users` - Admin user management
 
 ## System Architecture
 
@@ -21,7 +68,7 @@ Preferred communication style: Simple, everyday language.
 - shadcn/ui component library built on Radix UI primitives for accessible, composable components
 - Tailwind CSS with custom design tokens for styling, following a "New York" style variant
 - Custom CSS variables for theming (light/dark mode support)
-- Gaming dashboard aesthetic inspired by competitive gaming platforms (Tracker.gg, FACEIT) combined with modern admin dashboards
+- Gaming dashboard aesthetic inspired by competitive gaming platforms (Tracker.gg, FACEIT)
 
 **State Management**
 - TanStack Query (React Query) for server state management with aggressive caching strategies (staleTime: Infinity)
@@ -29,10 +76,11 @@ Preferred communication style: Simple, everyday language.
 - No global client state management library - relying on React Query's cache and local component state
 
 **Design System**
+- Custom logo integration (Inimigos da Bala logo)
 - Typography: Inter font for data display, JetBrains Mono for statistics and numerical values
 - Consistent spacing using Tailwind's 2/4/6/8 unit system
 - Responsive grid layouts: 3-column on desktop, collapsing to 1-2 columns on mobile
-- Component elevation system using subtle borders and shadows rather than material-style elevation
+- Component elevation system using subtle borders and shadows
 
 ### Backend Architecture
 
@@ -48,11 +96,11 @@ Preferred communication style: Simple, everyday language.
 - Schema-first approach with TypeScript types generated from Drizzle schema definitions
 
 **Data Model**
-The application uses three main tables:
+The application uses four main tables:
 1. **sessions** - Express session storage for authentication state
-2. **users** - Player profiles with aggregated CS:GO statistics (kills, deaths, assists, headshots, matches, skill rating)
-3. **matches** - Individual match records
-4. **matchStats** - Per-player statistics for each match
+2. **users** - Player profiles with aggregated CS stats (kills, deaths, assists, headshots, matches, skill rating)
+3. **matches** - Individual match records (map, scores, date)
+4. **matchStats** - Per-player statistics for each match (kills, deaths, assists, headshots, MVPs)
 
 **Authentication & Authorization**
 - Replit OpenID Connect integration using openid-client and Passport.js
@@ -66,11 +114,13 @@ The application uses three main tables:
 - Admin status is preserved across logins: the `upsertUser` function uses PostgreSQL ON CONFLICT with a SET clause that excludes `isAdmin`, ensuring existing roles are never overwritten
 - Admins can promote other users via the user management API (PATCH /api/users/:id)
 
-**API Design**
-- RESTful endpoints under `/api` prefix
-- Authentication routes: `/api/auth/user` for current user retrieval
-- Admin-only routes for user management: `/api/users` (list), user updates, and deletions
-- JSON request/response format with Zod schema validation
+**API Endpoints**
+- `GET /api/auth/user` - Get current authenticated user
+- `GET /api/users` - Get all users (for rankings, mix balancing)
+- `PATCH /api/users/:id` - Update user stats (admin only)
+- `DELETE /api/users/:id` - Delete user (admin only)
+- `GET /api/matches` - Get all matches
+- `GET /api/users/:id/matches` - Get user's match stats
 
 ### Build & Deployment Strategy
 
@@ -85,12 +135,6 @@ The application uses three main tables:
 - Client assets bundled to `dist/public`
 - Server code bundled to `dist/index.cjs` with selective dependency bundling
 - Static file serving from Express in production
-- Critical dependencies bundled to reduce cold start times (improved syscall performance)
-
-**Build Optimization**
-- Allowlist strategy for bundling frequently-used dependencies
-- External dependencies for native modules and less-critical packages
-- Single-file server bundle for faster startup
 
 ## External Dependencies
 

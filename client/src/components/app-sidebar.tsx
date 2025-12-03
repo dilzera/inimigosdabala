@@ -9,47 +9,41 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation, Link } from "wouter";
 import {
-  LayoutDashboard,
   Users,
   LogOut,
-  Crosshair,
-  Settings,
   Trophy,
+  User,
+  Server,
+  Terminal,
+  Map,
+  Palette,
+  Key,
+  Heart,
+  Link2,
+  MessageCircle,
+  Phone,
+  Gamepad2,
+  History,
+  Settings,
+  ChevronRight,
+  Swords,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 export function AppSidebar() {
   const { user } = useAuth();
   const [location] = useLocation();
-
-  const playerItems = [
-    {
-      title: "Dashboard",
-      url: "/",
-      icon: LayoutDashboard,
-    },
-  ];
-
-  const adminItems = [
-    {
-      title: "Dashboard",
-      url: "/",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Gerenciar Usuários",
-      url: "/admin/users",
-      icon: Users,
-    },
-  ];
-
-  const items = user?.isAdmin ? adminItems : playerItems;
 
   const getInitials = (user: typeof userType) => {
     if (!user) return "?";
@@ -62,7 +56,7 @@ export function AppSidebar() {
     if (user.email) {
       return user.email.slice(0, 2).toUpperCase();
     }
-    return "CS";
+    return "IB";
   };
 
   const userType = user;
@@ -71,12 +65,14 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary">
-            <Crosshair className="h-6 w-6 text-primary-foreground" />
-          </div>
+          <img 
+            src={logoUrl} 
+            alt="Inimigos da Bala" 
+            className="h-12 w-12 rounded-md object-contain"
+          />
           <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight">CS Stats</span>
-            <span className="text-xs text-muted-foreground">Manager</span>
+            <span className="text-lg font-bold tracking-tight">Inimigos da Bala</span>
+            <span className="text-xs text-muted-foreground">Counter-Strike 2</span>
           </div>
         </div>
       </SidebarHeader>
@@ -84,24 +80,248 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="uppercase tracking-wider text-xs">
-            Menu
+            Menu Principal
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton data-testid="nav-mix">
+                      <Swords className="h-4 w-4" />
+                      <span>MIX</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/mix/escolher-time"}
+                          data-testid="nav-escolher-time"
+                        >
+                          <Link href="/mix/escolher-time">
+                            <Users className="h-4 w-4" />
+                            <span>Escolher Time do Mix</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
                 </SidebarMenuItem>
-              ))}
+              </Collapsible>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/perfil"}
+                  data-testid="nav-perfil"
+                >
+                  <Link href="/perfil">
+                    <User className="h-4 w-4" />
+                    <span>Perfil de Usuário</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/rankings"}
+                  data-testid="nav-rankings"
+                >
+                  <Link href="/rankings">
+                    <Trophy className="h-4 w-4" />
+                    <span>Melhores Jogadores</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton data-testid="nav-servidor">
+                      <Server className="h-4 w-4" />
+                      <span>Servidor</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/servidor/comandos"}
+                          data-testid="nav-comandos"
+                        >
+                          <Link href="/servidor/comandos">
+                            <Terminal className="h-4 w-4" />
+                            <span>Comandos do Servidor</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/servidor/mapas"}
+                          data-testid="nav-mapas"
+                        >
+                          <Link href="/servidor/mapas">
+                            <Map className="h-4 w-4" />
+                            <span>Mapas de Treino</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/servidor/skins"}
+                          data-testid="nav-skins"
+                        >
+                          <Link href="/servidor/skins">
+                            <Palette className="h-4 w-4" />
+                            <span>Como Colocar as Skins</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/servidor/steamid"}
+                          data-testid="nav-steamid"
+                        >
+                          <Link href="/servidor/steamid">
+                            <Key className="h-4 w-4" />
+                            <span>SteamID64</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/patrocinadores"}
+                  data-testid="nav-patrocinadores"
+                >
+                  <Link href="/patrocinadores">
+                    <Heart className="h-4 w-4" />
+                    <span>Patrocinadores</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton data-testid="nav-links">
+                      <Link2 className="h-4 w-4" />
+                      <span>Links</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          data-testid="nav-discord"
+                        >
+                          <a href="https://discord.gg" target="_blank" rel="noopener noreferrer">
+                            <MessageCircle className="h-4 w-4" />
+                            <span>Discord</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          data-testid="nav-whatsapp"
+                        >
+                          <a href="https://wa.me" target="_blank" rel="noopener noreferrer">
+                            <Phone className="h-4 w-4" />
+                            <span>WhatsApp</span>
+                          </a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton data-testid="nav-partidas">
+                      <Gamepad2 className="h-4 w-4" />
+                      <span>Partidas</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/partidas/minhas"}
+                          data-testid="nav-minhas-partidas"
+                        >
+                          <Link href="/partidas/minhas">
+                            <History className="h-4 w-4" />
+                            <span>Jogadas por você</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/partidas/todas"}
+                          data-testid="nav-todas-partidas"
+                        >
+                          <Link href="/partidas/todas">
+                            <Gamepad2 className="h-4 w-4" />
+                            <span>Todas</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {user?.isAdmin && (
+                <Collapsible className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton data-testid="nav-admin">
+                        <Settings className="h-4 w-4" />
+                        <span>Painel Admin</span>
+                        <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === "/admin/users"}
+                            data-testid="nav-gerenciar-usuarios"
+                          >
+                            <Link href="/admin/users">
+                              <Users className="h-4 w-4" />
+                              <span>Gerenciar Usuários</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
