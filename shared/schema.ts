@@ -83,6 +83,7 @@ export const matches = pgTable("matches", {
   team2Name: varchar("team2_name"),
   team1Score: integer("team1_score").default(0).notNull(),
   team2Score: integer("team2_score").default(0).notNull(),
+  winnerTeam: varchar("winner_team"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

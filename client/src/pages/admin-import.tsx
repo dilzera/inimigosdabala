@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,17 +8,78 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { FileUp, CheckCircle, AlertCircle, Upload, FileText, Info } from "lucide-react";
+import { FileUp, CheckCircle, AlertCircle, Upload, FileText, Info, Trophy, Users } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+interface DetectedTeam {
+  name: string;
+  players: string[];
+}
+
+function parseCSVForTeams(csvContent: string): DetectedTeam[] {
+  if (!csvContent.trim()) return [];
+  
+  const lines = csvContent.trim().split('\n');
+  if (lines.length < 2) return [];
+  
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const teamIndex = headers.indexOf('team');
+  const nameIndex = headers.indexOf('name');
+  
+  if (teamIndex === -1) return [];
+  
+  const teams: Map<string, string[]> = new Map();
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim());
+    const teamName = values[teamIndex] || '';
+    const playerName = nameIndex >= 0 ? values[nameIndex] : '';
+    
+    if (teamName) {
+      if (!teams.has(teamName)) {
+        teams.set(teamName, []);
+      }
+      if (playerName) {
+        teams.get(teamName)!.push(playerName);
+      }
+    }
+  }
+  
+  return Array.from(teams.entries()).map(([name, players]) => ({
+    name,
+    players
+  }));
+}
 
 export default function AdminImport() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [csvContent, setCsvContent] = useState("");
   const [mapName, setMapName] = useState("");
+  const [winnerTeam, setWinnerTeam] = useState<string>("");
+  const [team1Score, setTeam1Score] = useState<string>("");
+  const [team2Score, setTeam2Score] = useState<string>("");
+
+  const detectedTeams = useMemo(() => parseCSVForTeams(csvContent), [csvContent]);
+
+  useEffect(() => {
+    if (detectedTeams.length >= 2) {
+      setWinnerTeam("");
+      setTeam1Score("");
+      setTeam2Score("");
+    }
+  }, [csvContent]);
 
   const importMutation = useMutation({
-    mutationFn: async (data: { csvContent: string; map: string }) => {
+    mutationFn: async (data: { 
+      csvContent: string; 
+      map: string;
+      winnerTeam?: string;
+      team1Score?: number;
+      team2Score?: number;
+    }) => {
       const response = await apiRequest("POST", "/api/matches/import", data);
       const result = await response.json();
       
@@ -35,6 +96,9 @@ export default function AdminImport() {
       });
       setCsvContent("");
       setMapName("");
+      setWinnerTeam("");
+      setTeam1Score("");
+      setTeam2Score("");
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     },
@@ -63,10 +127,9 @@ export default function AdminImport() {
         const content = event.target?.result as string;
         setCsvContent(content);
         
-        // Try to extract map name from filename
         const fileName = file.name.replace('.csv', '');
         if (fileName.includes('match_data_')) {
-          setMapName(''); // Let user fill in
+          setMapName('');
         }
       };
       reader.readAsText(file);
@@ -91,7 +154,18 @@ export default function AdminImport() {
       });
       return;
     }
-    importMutation.mutate({ csvContent, map: mapName });
+    
+    const importData: any = { csvContent, map: mapName };
+    
+    if (winnerTeam) {
+      importData.winnerTeam = winnerTeam;
+    }
+    if (team1Score && team2Score) {
+      importData.team1Score = parseInt(team1Score);
+      importData.team2Score = parseInt(team2Score);
+    }
+    
+    importMutation.mutate(importData);
   };
 
   if (!user?.isAdmin) {
@@ -191,6 +265,110 @@ export default function AdminImport() {
           </CardContent>
         </Card>
       </div>
+
+      {detectedTeams.length >= 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Times Detectados
+            </CardTitle>
+            <CardDescription>
+              Informe o vencedor e o placar da partida
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              {detectedTeams.slice(0, 2).map((team, index) => (
+                <div key={team.name} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-blue-500' : 'bg-red-500'}`} />
+                    <h4 className="font-semibold">{team.name}</h4>
+                    <span className="text-sm text-muted-foreground">
+                      ({team.players.length} jogadores)
+                    </span>
+                  </div>
+                  <div className="bg-muted rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground truncate" title={team.players.join(', ')}>
+                      {team.players.join(', ')}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-yellow-500" />
+                  Time Vencedor
+                </Label>
+                <RadioGroup
+                  value={winnerTeam}
+                  onValueChange={setWinnerTeam}
+                  className="flex gap-4"
+                >
+                  {detectedTeams.slice(0, 2).map((team) => (
+                    <div key={team.name} className="flex items-center space-x-2">
+                      <RadioGroupItem 
+                        value={team.name} 
+                        id={`winner-${team.name}`}
+                        data-testid={`radio-winner-${team.name}`}
+                      />
+                      <Label htmlFor={`winner-${team.name}`} className="cursor-pointer">
+                        {team.name}
+                      </Label>
+                    </div>
+                  ))}
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem 
+                      value="draw" 
+                      id="winner-draw"
+                      data-testid="radio-winner-draw"
+                    />
+                    <Label htmlFor="winner-draw" className="cursor-pointer">
+                      Empate
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="team1-score">
+                    Placar {detectedTeams[0]?.name}
+                  </Label>
+                  <Input
+                    id="team1-score"
+                    type="number"
+                    min="0"
+                    max="99"
+                    placeholder="0"
+                    value={team1Score}
+                    onChange={(e) => setTeam1Score(e.target.value)}
+                    data-testid="input-team1-score"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="team2-score">
+                    Placar {detectedTeams[1]?.name}
+                  </Label>
+                  <Input
+                    id="team2-score"
+                    type="number"
+                    min="0"
+                    max="99"
+                    placeholder="0"
+                    value={team2Score}
+                    onChange={(e) => setTeam2Score(e.target.value)}
+                    data-testid="input-team2-score"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

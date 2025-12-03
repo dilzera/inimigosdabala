@@ -211,7 +211,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden - Admin access required" });
       }
 
-      const { csvContent, map } = req.body;
+      const { csvContent, map, winnerTeam, team1Score, team2Score } = req.body;
 
       if (!csvContent || typeof csvContent !== 'string') {
         return res.status(400).json({ message: "CSV content is required" });
@@ -248,21 +248,29 @@ export async function registerRoutes(
       const team1Name = teams[0] || 'Time 1';
       const team2Name = teams[1] || 'Time 2';
 
-      // Calculate scores based on kills (this is a simplification)
-      const team1Players = rows.filter(r => r.team === team1Name);
-      const team2Players = rows.filter(r => r.team === team2Name);
-      const team1Score = team1Players.reduce((sum, p) => sum + p.kills, 0);
-      const team2Score = team2Players.reduce((sum, p) => sum + p.kills, 0);
+      // Use provided scores if available, otherwise calculate from kills
+      let finalTeam1Score = team1Score;
+      let finalTeam2Score = team2Score;
+      
+      if (finalTeam1Score === undefined || finalTeam2Score === undefined) {
+        const team1Players = rows.filter(r => r.team === team1Name);
+        const team2Players = rows.filter(r => r.team === team2Name);
+        const t1Kills = team1Players.reduce((sum, p) => sum + p.kills, 0);
+        const t2Kills = team2Players.reduce((sum, p) => sum + p.kills, 0);
+        finalTeam1Score = Math.round(t1Kills / 5);
+        finalTeam2Score = Math.round(t2Kills / 5);
+      }
 
-      // Create match
+      // Create match with winner info
       const match = await storage.createMatch({
         externalMatchId: matchId,
         mapNumber,
         map,
         team1Name,
         team2Name,
-        team1Score: Math.round(team1Score / 5), // Normalize to approximate round wins
-        team2Score: Math.round(team2Score / 5),
+        team1Score: finalTeam1Score,
+        team2Score: finalTeam2Score,
+        winnerTeam: winnerTeam || null,
         date: new Date(),
       });
 
