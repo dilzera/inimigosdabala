@@ -40,6 +40,7 @@ The sidebar navigation includes the following sections:
 
 8. **Painel Admin** (Admin only, Collapsible)
    - Gerenciar Usuários - User management
+   - Importar Partida - CSV import from CS2 server
 
 ### Page Routes
 - `/` - Main dashboard (Admin: AdminDashboard, Player: Dashboard)
@@ -54,6 +55,7 @@ The sidebar navigation includes the following sections:
 - `/partidas/minhas` - User's matches
 - `/partidas/todas` - All matches
 - `/admin/users` - Admin user management
+- `/admin/import` - CSV match data import (admin only)
 
 ## System Architecture
 
@@ -98,9 +100,16 @@ The sidebar navigation includes the following sections:
 **Data Model**
 The application uses four main tables:
 1. **sessions** - Express session storage for authentication state
-2. **users** - Player profiles with aggregated CS stats (kills, deaths, assists, headshots, matches, skill rating)
-3. **matches** - Individual match records (map, scores, date)
-4. **matchStats** - Per-player statistics for each match (kills, deaths, assists, headshots, MVPs)
+2. **users** - Player profiles with SteamID64 and aggregated CS stats including:
+   - Basic combat stats (kills, deaths, assists, headshots, damage)
+   - Match stats (wins, losses, rounds played/won, MVPs)
+   - Multi-kill stats (2K, 3K, 4K, 5K/ACE)
+   - Clutch performance (1v1, 1v2 wins/count)
+   - Entry frag stats (wins/count)
+   - Utility stats (flash count/success, enemies flashed, utility damage)
+   - Accuracy stats (shots fired, shots on target)
+3. **matches** - Individual match records (map, scores, date, external match ID)
+4. **matchStats** - Per-player statistics for each match including all 30+ detailed stat fields from CS2 server CSV
 
 **Authentication & Authorization**
 - Replit OpenID Connect integration using openid-client and Passport.js
@@ -121,6 +130,16 @@ The application uses four main tables:
 - `DELETE /api/users/:id` - Delete user (admin only)
 - `GET /api/matches` - Get all matches
 - `GET /api/users/:id/matches` - Get user's match stats
+- `POST /api/matches/import` - Import CSV match data from CS2 server (admin only)
+- `POST /api/users/link-steam` - Link SteamID64 to user account
+
+**CSV Import System**
+- Admin-only feature for importing match data from CS2 server CSV exports
+- Supports file upload or direct paste of CSV content
+- CSV format includes: matchid, mapnumber, steamid64, team, and 30+ statistical fields
+- Automatic player creation from Steam data if SteamID64 not found in system
+- Aggregated user statistics are recalculated after each import
+- Duplicate match detection based on external match ID
 
 ### Build & Deployment Strategy
 
