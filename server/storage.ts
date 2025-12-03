@@ -350,7 +350,7 @@ export class DatabaseStorage implements IStorage {
       .set({ userId: targetId })
       .where(eq(payments.userId, sourceId));
 
-    // Merge aggregated stats
+    // Prepare merged stats
     const mergedStats = {
       totalKills: (targetUser.totalKills || 0) + (sourceUser.totalKills || 0),
       totalDeaths: (targetUser.totalDeaths || 0) + (sourceUser.totalDeaths || 0),
@@ -379,22 +379,25 @@ export class DatabaseStorage implements IStorage {
       totalUtilityDamage: (targetUser.totalUtilityDamage || 0) + (sourceUser.totalUtilityDamage || 0),
       totalShotsFired: (targetUser.totalShotsFired || 0) + (sourceUser.totalShotsFired || 0),
       totalShotsOnTarget: (targetUser.totalShotsOnTarget || 0) + (sourceUser.totalShotsOnTarget || 0),
-      steamId64: sourceUser.steamId64 || targetUser.steamId64,
-      nickname: sourceUser.nickname || targetUser.nickname,
+      nickname: targetUser.nickname || sourceUser.nickname,
     };
 
-    // Update target user with merged stats
+    // Determine the SteamID64 to use (prefer source's if target doesn't have one)
+    const newSteamId64 = targetUser.steamId64 || sourceUser.steamId64;
+
+    // Delete source user FIRST to avoid unique constraint violation on steamId64
+    await db.delete(users).where(eq(users.id, sourceId));
+
+    // Update target user with merged stats and SteamID64
     const [updatedUser] = await db
       .update(users)
       .set({
         ...mergedStats,
+        steamId64: newSteamId64,
         updatedAt: new Date(),
       })
       .where(eq(users.id, targetId))
       .returning();
-
-    // Delete source user
-    await db.delete(users).where(eq(users.id, sourceId));
 
     return updatedUser;
   }
