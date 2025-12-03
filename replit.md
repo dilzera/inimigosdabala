@@ -60,6 +60,12 @@ The application uses three main tables:
 - Protected API routes using `isAuthenticated` middleware
 - Session management with 7-day cookie lifetime
 
+**Admin Bootstrap Logic**
+- The FIRST user to log in is automatically granted admin privileges (`isAdmin = true`)
+- All subsequent users are regular players by default (`isAdmin = false`)
+- Admin status is preserved across logins: the `upsertUser` function uses PostgreSQL ON CONFLICT with a SET clause that excludes `isAdmin`, ensuring existing roles are never overwritten
+- Admins can promote other users via the user management API (PATCH /api/users/:id)
+
 **API Design**
 - RESTful endpoints under `/api` prefix
 - Authentication routes: `/api/auth/user` for current user retrieval
