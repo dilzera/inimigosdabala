@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   User, Trophy, Target, Crosshair, Shield, Star, TrendingUp, 
-  Zap, Award, Bomb, Eye, Link2, Check, AlertCircle
+  Zap, Award, Eye, Link2, Check, AlertCircle, Edit2, Save, X
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,29 +19,67 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 export default function Perfil() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [steamId, setSteamId] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    nickname: "",
+    profileImageUrl: "",
+    steamId64: "",
+  });
 
-  const linkSteamMutation = useMutation({
-    mutationFn: async (steamId64: string) => {
-      const response = await apiRequest("POST", "/api/users/link-steam", { steamId64 });
+  useEffect(() => {
+    if (user) {
+      setEditForm({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        nickname: user.nickname || "",
+        profileImageUrl: user.profileImageUrl || "",
+        steamId64: user.steamId64 || "",
+      });
+    }
+  }, [user]);
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: typeof editForm) => {
+      const response = await apiRequest("PATCH", "/api/users/me", data);
       return await response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Steam Vinculado!",
-        description: "Seu SteamID64 foi vinculado com sucesso.",
+        title: "Perfil Atualizado!",
+        description: "Suas informações foram salvas com sucesso.",
       });
-      setSteamId("");
+      setIsEditing(false);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Erro ao Vincular",
-        description: error.message || "Não foi possível vincular o SteamID64.",
+        title: "Erro ao Atualizar",
+        description: error.message || "Não foi possível atualizar o perfil.",
         variant: "destructive",
       });
     },
   });
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateProfileMutation.mutate(editForm);
+  };
+
+  const handleCancelEdit = () => {
+    if (user) {
+      setEditForm({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        nickname: user.nickname || "",
+        profileImageUrl: user.profileImageUrl || "",
+        steamId64: user.steamId64 || "",
+      });
+    }
+    setIsEditing(false);
+  };
 
   if (!user) {
     return (
@@ -87,13 +125,6 @@ export default function Perfil() {
     ? ((user.totalFlashSuccesses / user.totalFlashCount) * 100).toFixed(0)
     : "0";
 
-  const handleLinkSteam = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (steamId.trim()) {
-      linkSteamMutation.mutate(steamId.trim());
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -104,72 +135,156 @@ export default function Perfil() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardContent className="pt-6">
-            <div className="flex flex-col items-center text-center">
-              <Avatar className="h-24 w-24 mb-4">
-                <AvatarImage src={user.profileImageUrl || undefined} />
-                <AvatarFallback className="bg-primary/10 text-primary text-2xl">
-                  {user.nickname?.slice(0, 2).toUpperCase() || user.firstName?.[0] || "?"}
-                </AvatarFallback>
-              </Avatar>
-              <h2 className="text-2xl font-bold">
-                {user.nickname || user.firstName || "Jogador"}
-              </h2>
-              <p className="text-muted-foreground">{user.email}</p>
-              <div className="flex flex-wrap gap-2 mt-3 justify-center">
-                <Badge variant={user.isAdmin ? "default" : "secondary"}>
-                  {user.isAdmin ? "Admin" : "Jogador"}
-                </Badge>
-                <Badge variant="outline" className="font-mono">
-                  Rating: {user.skillRating}
-                </Badge>
-              </div>
-              {user.steamId64 && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="font-mono">{user.steamId64}</span>
+            {isEditing ? (
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div className="flex flex-col items-center text-center mb-4">
+                  <Avatar className="h-24 w-24 mb-4">
+                    <AvatarImage src={editForm.profileImageUrl || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-2xl">
+                      {editForm.nickname?.slice(0, 2).toUpperCase() || editForm.firstName?.[0] || "?"}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
-              )}
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Skill Rating</span>
-                  <span className="font-mono">{user.skillRating} / 3000</span>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="nickname">Apelido (Nick)</Label>
+                  <Input
+                    id="nickname"
+                    placeholder="Seu nick no jogo"
+                    value={editForm.nickname}
+                    onChange={(e) => setEditForm({ ...editForm, nickname: e.target.value })}
+                    data-testid="input-nickname"
+                  />
                 </div>
-                <Progress value={(user.skillRating / 3000) * 100} />
-              </div>
-            </div>
 
-            {!user.steamId64 && (
-              <div className="mt-6 pt-6 border-t">
-                <form onSubmit={handleLinkSteam} className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-2">
-                    <Label htmlFor="steam-id" className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4" />
-                      Vincular SteamID64
-                    </Label>
+                    <Label htmlFor="firstName">Nome</Label>
                     <Input
-                      id="steam-id"
-                      placeholder="76561198000000000"
-                      value={steamId}
-                      onChange={(e) => setSteamId(e.target.value)}
-                      data-testid="input-steam-id"
+                      id="firstName"
+                      placeholder="Nome"
+                      value={editForm.firstName}
+                      onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                      data-testid="input-firstname"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Vincule seu SteamID64 para sincronizar suas estatísticas do servidor.
-                    </p>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Sobrenome</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Sobrenome"
+                      value={editForm.lastName}
+                      onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                      data-testid="input-lastname"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="profileImageUrl">URL da Foto de Perfil</Label>
+                  <Input
+                    id="profileImageUrl"
+                    placeholder="https://exemplo.com/foto.jpg"
+                    value={editForm.profileImageUrl}
+                    onChange={(e) => setEditForm({ ...editForm, profileImageUrl: e.target.value })}
+                    data-testid="input-profile-image"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="steamId64" className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4" />
+                    SteamID64
+                  </Label>
+                  <Input
+                    id="steamId64"
+                    placeholder="76561198000000000"
+                    value={editForm.steamId64}
+                    onChange={(e) => setEditForm({ ...editForm, steamId64: e.target.value })}
+                    data-testid="input-steam-id"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Se esse SteamID já existe, suas estatísticas serão mescladas automaticamente.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
                   <Button 
                     type="submit" 
-                    className="w-full"
-                    disabled={linkSteamMutation.isPending || !steamId.trim()}
-                    data-testid="button-link-steam"
+                    className="flex-1"
+                    disabled={updateProfileMutation.isPending}
+                    data-testid="button-save-profile"
                   >
-                    {linkSteamMutation.isPending ? "Vinculando..." : "Vincular Steam"}
+                    {updateProfileMutation.isPending ? (
+                      "Salvando..."
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Salvar
+                      </>
+                    )}
                   </Button>
-                </form>
-              </div>
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    data-testid="button-cancel-edit"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="flex flex-col items-center text-center">
+                  <Avatar className="h-24 w-24 mb-4">
+                    <AvatarImage src={user.profileImageUrl || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-2xl">
+                      {user.nickname?.slice(0, 2).toUpperCase() || user.firstName?.[0] || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h2 className="text-2xl font-bold">
+                    {user.nickname || user.firstName || "Jogador"}
+                  </h2>
+                  <p className="text-muted-foreground">{user.email}</p>
+                  <div className="flex flex-wrap gap-2 mt-3 justify-center">
+                    <Badge variant={user.isAdmin ? "default" : "secondary"}>
+                      {user.isAdmin ? "Admin" : "Jogador"}
+                    </Badge>
+                    <Badge variant="outline" className="font-mono">
+                      Rating: {user.skillRating}
+                    </Badge>
+                  </div>
+                  {user.steamId64 && (
+                    <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4 text-green-500" />
+                      <span className="font-mono">{user.steamId64}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span>Skill Rating</span>
+                      <span className="font-mono">{user.skillRating} / 3000</span>
+                    </div>
+                    <Progress value={(user.skillRating / 3000) * 100} />
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t">
+                  <Button 
+                    onClick={() => setIsEditing(true)}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-edit-profile"
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Editar Perfil
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
