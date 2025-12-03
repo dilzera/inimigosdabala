@@ -116,20 +116,36 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const { firstName, lastName, nickname, profileImageUrl, steamId64 } = req.body;
       
-      // If linking steamId64, check if it already belongs to another user
-      if (steamId64) {
+      // If linking/changing steamId64, check if it already belongs to another user
+      if (steamId64 && steamId64.trim() !== '') {
         const existingUser = await storage.getUserBySteamId(steamId64);
         
         if (existingUser && existingUser.id !== userId) {
-          // Merge the existing steam user into current user
+          // Try to merge the existing steam user into current user
           const mergedUser = await storage.mergeUsers(existingUser.id, userId);
           if (mergedUser) {
+            // Also update other profile fields if provided
+            const additionalUpdates: any = { updatedAt: new Date() };
+            if (firstName !== undefined) additionalUpdates.firstName = firstName;
+            if (lastName !== undefined) additionalUpdates.lastName = lastName;
+            if (nickname !== undefined) additionalUpdates.nickname = nickname;
+            if (profileImageUrl !== undefined) additionalUpdates.profileImageUrl = profileImageUrl;
+            
+            if (Object.keys(additionalUpdates).length > 1) {
+              const finalUser = await storage.updateUserStats(userId, additionalUpdates);
+              return res.json(finalUser);
+            }
             return res.json(mergedUser);
+          } else {
+            // Merge failed - user not found or other issue
+            return res.status(400).json({ 
+              message: "Não foi possível vincular este SteamID64. O usuário associado não foi encontrado." 
+            });
           }
         }
       }
       
-      // Regular update
+      // Regular update (steamId64 is new/empty or belongs to current user)
       const updates: any = { updatedAt: new Date() };
       if (firstName !== undefined) updates.firstName = firstName;
       if (lastName !== undefined) updates.lastName = lastName;
