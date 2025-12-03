@@ -1,31 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Palette, Check, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Palette, Check, ExternalLink, Play } from "lucide-react";
+import tutorialVideo from "@assets/2025-11-14_13-30-54_1764764550063.mp4";
 
 export default function ServidorSkins() {
-  const passos = [
-    {
-      titulo: "Acesse o servidor",
-      descricao: "Entre no servidor e aguarde carregar completamente",
-    },
-    {
-      titulo: "Abra o menu de skins",
-      descricao: "Digite !ws no chat para abrir o menu de skins de armas",
-    },
-    {
-      titulo: "Escolha a arma",
-      descricao: "Selecione a categoria e a arma que deseja personalizar",
-    },
-    {
-      titulo: "Selecione a skin",
-      descricao: "Navegue pelas skins disponíveis e escolha a que mais gosta",
-    },
-    {
-      titulo: "Aplique a skin",
-      descricao: "Confirme a seleção e a skin será aplicada automaticamente",
-    },
-  ];
-
   const comandosExtras = [
     {
       comando: "!ws",
@@ -57,7 +36,7 @@ export default function ServidorSkins() {
     "As skins são apenas visuais e não afetam o gameplay",
     "Suas escolhas de skins são salvas automaticamente",
     "Você pode mudar as skins a qualquer momento durante o warmup",
-    "Algumas skins raras estão disponíveis apenas para jogadores VIP",
+    "Configure suas skins no site antes de entrar no servidor",
     "As luvas e facas são aplicadas para todas as armas",
   ];
 
@@ -75,29 +54,50 @@ export default function ServidorSkins() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Passo a Passo</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5" />
+            Configurar Skins
+          </CardTitle>
           <CardDescription>
-            Siga estes passos para aplicar suas skins favoritas
+            Acesse o site abaixo para configurar suas skins antes de entrar no servidor
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button
+            size="lg"
+            className="w-full md:w-auto"
+            onClick={() => window.open("https://inventory.cstrike.app", "_blank")}
+            data-testid="button-inventory-link"
+          >
+            <ExternalLink className="h-5 w-5 mr-2" />
+            Acessar Inventory CS Strike
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Configure suas skins, facas, luvas e agentes no site. As configurações serão aplicadas automaticamente quando você entrar no servidor.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Play className="h-5 w-5" />
+            Tutorial em Vídeo
+          </CardTitle>
+          <CardDescription>
+            Assista o passo a passo de como configurar suas skins
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {passos.map((passo, index) => (
-              <div key={index} className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                  {index + 1}
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium">{passo.titulo}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {passo.descricao}
-                  </div>
-                </div>
-                {index < passos.length - 1 && (
-                  <ArrowRight className="h-4 w-4 text-muted-foreground mt-2" />
-                )}
-              </div>
-            ))}
+          <div className="rounded-lg overflow-hidden bg-black">
+            <video
+              controls
+              className="w-full max-h-[500px]"
+              data-testid="video-tutorial"
+            >
+              <source src={tutorialVideo} type="video/mp4" />
+              Seu navegador não suporta vídeos.
+            </video>
           </div>
         </CardContent>
       </Card>
@@ -105,7 +105,7 @@ export default function ServidorSkins() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Comandos Disponíveis</CardTitle>
+            <CardTitle>Comandos no Servidor</CardTitle>
             <CardDescription>
               Use estes comandos no chat do jogo
             </CardDescription>
