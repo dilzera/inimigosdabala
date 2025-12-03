@@ -4,6 +4,7 @@ import {
   matches,
   matchStats,
   payments,
+  reports,
   type User,
   type UpsertUser,
   type Match,
@@ -13,9 +14,12 @@ import {
   type UpdateUserStats,
   type Payment,
   type InsertPayment,
+  type Report,
+  type InsertReport,
+  type UpdateReport,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -46,6 +50,13 @@ export interface IStorage {
   getPaymentsByUser(userId: string): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
   deletePayment(id: string): Promise<boolean>;
+  
+  // Report operations
+  getAllReports(): Promise<Report[]>;
+  getReport(id: string): Promise<Report | undefined>;
+  createReport(report: InsertReport): Promise<Report>;
+  updateReport(id: string, data: UpdateReport): Promise<Report | undefined>;
+  deleteReport(id: string): Promise<boolean>;
   
   // User merge operation
   mergeUsers(sourceId: string, targetId: string): Promise<User | undefined>;
@@ -283,6 +294,38 @@ export class DatabaseStorage implements IStorage {
 
   async deletePayment(id: string): Promise<boolean> {
     const result = await db.delete(payments).where(eq(payments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Report operations
+  async getAllReports(): Promise<Report[]> {
+    return await db.select().from(reports).orderBy(desc(reports.createdAt));
+  }
+
+  async getReport(id: string): Promise<Report | undefined> {
+    const [report] = await db.select().from(reports).where(eq(reports.id, id));
+    return report;
+  }
+
+  async createReport(report: InsertReport): Promise<Report> {
+    const [newReport] = await db.insert(reports).values(report).returning();
+    return newReport;
+  }
+
+  async updateReport(id: string, data: UpdateReport): Promise<Report | undefined> {
+    const [updatedReport] = await db
+      .update(reports)
+      .set({
+        ...data,
+        reviewedAt: data.status && data.status !== "pending" ? new Date() : undefined,
+      })
+      .where(eq(reports.id, id))
+      .returning();
+    return updatedReport;
+  }
+
+  async deleteReport(id: string): Promise<boolean> {
+    const result = await db.delete(reports).where(eq(reports.id, id)).returning();
     return result.length > 0;
   }
 

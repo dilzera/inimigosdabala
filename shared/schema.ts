@@ -182,6 +182,32 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   }),
 }));
 
+// Reports table for user complaints/denuncias
+export const reports = pgTable("reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  description: varchar("description", { length: 2000 }).notNull(),
+  attachmentUrl: varchar("attachment_url"),
+  attachmentType: varchar("attachment_type"),
+  isAnonymous: boolean("is_anonymous").default(false).notNull(),
+  status: varchar("status").default("pending").notNull(),
+  adminNotes: varchar("admin_notes", { length: 1000 }),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+  user: one(users, {
+    fields: [reports.userId],
+    references: [users.id],
+  }),
+  reviewer: one(users, {
+    fields: [reports.reviewedBy],
+    references: [users.id],
+  }),
+}));
+
 // Schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -238,6 +264,19 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({
   createdAt: true,
 });
 
+export const insertReportSchema = createInsertSchema(reports).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+});
+
+export const updateReportSchema = z.object({
+  status: z.enum(["pending", "reviewing", "resolved", "dismissed"]).optional(),
+  adminNotes: z.string().max(1000).optional(),
+  reviewedBy: z.string().optional(),
+  reviewedAt: z.date().optional(),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -248,3 +287,6 @@ export type InsertMatchStats = z.infer<typeof insertMatchStatsSchema>;
 export type UpdateUserStats = z.infer<typeof updateUserStatsSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = z.infer<typeof insertReportSchema>;
+export type UpdateReport = z.infer<typeof updateReportSchema>;
