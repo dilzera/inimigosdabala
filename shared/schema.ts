@@ -31,18 +31,42 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   isAdmin: boolean("is_admin").default(false).notNull(),
-  // CS:GO Stats
+  // Steam ID for linking with server data
+  steamId64: varchar("steam_id_64").unique(),
+  // CS:GO Stats (aggregated from matches)
   nickname: varchar("nickname"),
   totalKills: integer("total_kills").default(0).notNull(),
   totalDeaths: integer("total_deaths").default(0).notNull(),
   totalAssists: integer("total_assists").default(0).notNull(),
   totalHeadshots: integer("total_headshots").default(0).notNull(),
+  totalDamage: integer("total_damage").default(0).notNull(),
   totalMatches: integer("total_matches").default(0).notNull(),
   matchesWon: integer("matches_won").default(0).notNull(),
   matchesLost: integer("matches_lost").default(0).notNull(),
   totalRoundsPlayed: integer("total_rounds_played").default(0).notNull(),
   roundsWon: integer("rounds_won").default(0).notNull(),
   totalMvps: integer("total_mvps").default(0).notNull(),
+  // Clutch stats
+  total1v1Count: integer("total_1v1_count").default(0).notNull(),
+  total1v1Wins: integer("total_1v1_wins").default(0).notNull(),
+  total1v2Count: integer("total_1v2_count").default(0).notNull(),
+  total1v2Wins: integer("total_1v2_wins").default(0).notNull(),
+  // Entry frag stats
+  totalEntryCount: integer("total_entry_count").default(0).notNull(),
+  totalEntryWins: integer("total_entry_wins").default(0).notNull(),
+  // Multi-kill rounds
+  total5ks: integer("total_5ks").default(0).notNull(),
+  total4ks: integer("total_4ks").default(0).notNull(),
+  total3ks: integer("total_3ks").default(0).notNull(),
+  total2ks: integer("total_2ks").default(0).notNull(),
+  // Utility stats
+  totalFlashCount: integer("total_flash_count").default(0).notNull(),
+  totalFlashSuccesses: integer("total_flash_successes").default(0).notNull(),
+  totalEnemiesFlashed: integer("total_enemies_flashed").default(0).notNull(),
+  totalUtilityDamage: integer("total_utility_damage").default(0).notNull(),
+  // Accuracy stats
+  totalShotsFired: integer("total_shots_fired").default(0).notNull(),
+  totalShotsOnTarget: integer("total_shots_on_target").default(0).notNull(),
   skillRating: integer("skill_rating").default(1000).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -51,23 +75,66 @@ export const users = pgTable("users", {
 // Matches table
 export const matches = pgTable("matches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  externalMatchId: integer("external_match_id"),
+  mapNumber: integer("map_number").default(0).notNull(),
   map: varchar("map").notNull(),
   date: timestamp("date").defaultNow().notNull(),
+  team1Name: varchar("team1_name"),
+  team2Name: varchar("team2_name"),
   team1Score: integer("team1_score").default(0).notNull(),
   team2Score: integer("team2_score").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Match stats per player
+// Match stats per player - detailed stats from server CSV
 export const matchStats = pgTable("match_stats", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   matchId: varchar("match_id").notNull().references(() => matches.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  team: integer("team").notNull(), // 1 or 2
+  steamId64: varchar("steam_id_64"),
+  team: varchar("team_name"),
+  playerName: varchar("player_name"),
+  // Basic stats
   kills: integer("kills").default(0).notNull(),
   deaths: integer("deaths").default(0).notNull(),
   assists: integer("assists").default(0).notNull(),
+  damage: integer("damage").default(0).notNull(),
   headshots: integer("headshots").default(0).notNull(),
+  // Multi-kill rounds
+  enemy5ks: integer("enemy_5ks").default(0).notNull(),
+  enemy4ks: integer("enemy_4ks").default(0).notNull(),
+  enemy3ks: integer("enemy_3ks").default(0).notNull(),
+  enemy2ks: integer("enemy_2ks").default(0).notNull(),
+  // Utility stats
+  utilityCount: integer("utility_count").default(0).notNull(),
+  utilityDamage: integer("utility_damage").default(0).notNull(),
+  utilitySuccesses: integer("utility_successes").default(0).notNull(),
+  utilityEnemies: integer("utility_enemies").default(0).notNull(),
+  // Flash stats
+  flashCount: integer("flash_count").default(0).notNull(),
+  flashSuccesses: integer("flash_successes").default(0).notNull(),
+  enemiesFlashed: integer("enemies_flashed").default(0).notNull(),
+  // Damage stats
+  healthPointsRemovedTotal: integer("health_points_removed_total").default(0).notNull(),
+  healthPointsDealtTotal: integer("health_points_dealt_total").default(0).notNull(),
+  // Accuracy stats
+  shotsFiredTotal: integer("shots_fired_total").default(0).notNull(),
+  shotsOnTargetTotal: integer("shots_on_target_total").default(0).notNull(),
+  // Clutch stats
+  v1Count: integer("v1_count").default(0).notNull(),
+  v1Wins: integer("v1_wins").default(0).notNull(),
+  v2Count: integer("v2_count").default(0).notNull(),
+  v2Wins: integer("v2_wins").default(0).notNull(),
+  // Entry frag stats
+  entryCount: integer("entry_count").default(0).notNull(),
+  entryWins: integer("entry_wins").default(0).notNull(),
+  // Economy stats
+  equipmentValue: integer("equipment_value").default(0).notNull(),
+  moneySaved: integer("money_saved").default(0).notNull(),
+  killReward: integer("kill_reward").default(0).notNull(),
+  cashEarned: integer("cash_earned").default(0).notNull(),
+  // Other stats
+  liveTime: integer("live_time").default(0).notNull(),
   mvps: integer("mvps").default(0).notNull(),
   score: integer("score").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -102,16 +169,34 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export const updateUserStatsSchema = z.object({
   nickname: z.string().optional(),
+  steamId64: z.string().optional(),
   totalKills: z.number().int().min(0).optional(),
   totalDeaths: z.number().int().min(0).optional(),
   totalAssists: z.number().int().min(0).optional(),
   totalHeadshots: z.number().int().min(0).optional(),
+  totalDamage: z.number().int().min(0).optional(),
   totalMatches: z.number().int().min(0).optional(),
   matchesWon: z.number().int().min(0).optional(),
   matchesLost: z.number().int().min(0).optional(),
   totalRoundsPlayed: z.number().int().min(0).optional(),
   roundsWon: z.number().int().min(0).optional(),
   totalMvps: z.number().int().min(0).optional(),
+  total1v1Count: z.number().int().min(0).optional(),
+  total1v1Wins: z.number().int().min(0).optional(),
+  total1v2Count: z.number().int().min(0).optional(),
+  total1v2Wins: z.number().int().min(0).optional(),
+  totalEntryCount: z.number().int().min(0).optional(),
+  totalEntryWins: z.number().int().min(0).optional(),
+  total5ks: z.number().int().min(0).optional(),
+  total4ks: z.number().int().min(0).optional(),
+  total3ks: z.number().int().min(0).optional(),
+  total2ks: z.number().int().min(0).optional(),
+  totalFlashCount: z.number().int().min(0).optional(),
+  totalFlashSuccesses: z.number().int().min(0).optional(),
+  totalEnemiesFlashed: z.number().int().min(0).optional(),
+  totalUtilityDamage: z.number().int().min(0).optional(),
+  totalShotsFired: z.number().int().min(0).optional(),
+  totalShotsOnTarget: z.number().int().min(0).optional(),
   skillRating: z.number().int().min(0).optional(),
   isAdmin: z.boolean().optional(),
 });
