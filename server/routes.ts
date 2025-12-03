@@ -490,5 +490,103 @@ export async function registerRoutes(
     }
   });
 
+  // Report routes
+  app.get('/api/reports', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const reports = await storage.getAllReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  app.post('/api/reports', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { description, attachmentUrl, attachmentType, isAnonymous } = req.body;
+
+      if (!description || typeof description !== 'string' || description.length < 10) {
+        return res.status(400).json({ message: "A descrição deve ter pelo menos 10 caracteres" });
+      }
+
+      if (description.length > 2000) {
+        return res.status(400).json({ message: "A descrição não pode exceder 2000 caracteres" });
+      }
+
+      const report = await storage.createReport({
+        userId: isAnonymous ? null : userId,
+        description,
+        attachmentUrl: attachmentUrl || null,
+        attachmentType: attachmentType || null,
+        isAnonymous: isAnonymous || false,
+        status: "pending",
+      });
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error creating report:", error);
+      res.status(500).json({ message: "Failed to create report" });
+    }
+  });
+
+  app.patch('/api/reports/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const reportId = req.params.id;
+      const { status, adminNotes } = req.body;
+
+      const updatedReport = await storage.updateReport(reportId, {
+        status,
+        adminNotes,
+        reviewedBy: userId,
+      });
+
+      if (!updatedReport) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      res.json(updatedReport);
+    } catch (error) {
+      console.error("Error updating report:", error);
+      res.status(500).json({ message: "Failed to update report" });
+    }
+  });
+
+  app.delete('/api/reports/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const deleted = await storage.deleteReport(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      res.json({ message: "Report deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      res.status(500).json({ message: "Failed to delete report" });
+    }
+  });
+
   return httpServer;
 }
