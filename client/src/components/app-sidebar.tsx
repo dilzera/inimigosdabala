@@ -41,6 +41,7 @@ import {
   DollarSign,
   Copy,
   Check,
+  AlertTriangle,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -268,6 +269,19 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/denuncias"}
+                  data-testid="nav-denuncias"
+                >
+                  <Link href="/denuncias">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Denúncias</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               <Collapsible className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
@@ -403,6 +417,18 @@ export function AppSidebar() {
                             <Link href="/admin/financeiro">
                               <DollarSign className="h-4 w-4" />
                               <span>Financeiro</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === "/admin/denuncias"}
+                            data-testid="nav-admin-denuncias"
+                          >
+                            <Link href="/admin/denuncias">
+                              <AlertTriangle className="h-4 w-4" />
+                              <span>Denúncias</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
