@@ -22,6 +22,7 @@ import ServidorSteamId from "@/pages/servidor-steamid";
 import Patrocinadores from "@/pages/patrocinadores";
 import PartidasMinhas from "@/pages/partidas-minhas";
 import PartidasTodas from "@/pages/partidas-todas";
+import AdminImport from "@/pages/admin-import";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/partidas/minhas" component={PartidasMinhas} />
       <Route path="/partidas/todas" component={PartidasTodas} />
       <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/import" component={AdminImport} />
       <Route component={NotFound} />
     </Switch>
   );

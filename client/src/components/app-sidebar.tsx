@@ -37,6 +37,7 @@ import {
   Settings,
   ChevronRight,
   Swords,
+  FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
@@ -314,6 +315,18 @@ export function AppSidebar() {
                             <Link href="/admin/users">
                               <Users className="h-4 w-4" />
                               <span>Gerenciar Usuários</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === "/admin/import"}
+                            data-testid="nav-importar-partida"
+                          >
+                            <Link href="/admin/import">
+                              <FileUp className="h-4 w-4" />
+                              <span>Importar Partida</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
