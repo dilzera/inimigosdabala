@@ -62,6 +62,12 @@ function parseCSV(csvContent: string): CsvRow[] {
       obj[header] = values[index] || '';
     });
     
+    // Skip spectators
+    if (obj.team?.toLowerCase() === 'spectator' || obj.team?.toLowerCase() === 'spectators') {
+      console.log(`Skipping spectator: ${obj.name}`);
+      continue;
+    }
+    
     try {
       const parsed = csvRowSchema.parse(obj);
       rows.push(parsed);
