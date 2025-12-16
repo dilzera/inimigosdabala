@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp } from "lucide-react";
+import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp, UserCheck, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
 
@@ -88,6 +89,8 @@ export default function MixEscolherTime() {
     queryKey: ["/api/users"],
   });
 
+  const [step, setStep] = useState<"selection" | "balancing">("selection");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
   const [playerLevels, setPlayerLevels] = useState<Record<string, number>>({});
   const [team1, setTeam1] = useState<PlayerWithLevel[]>([]);
   const [team2, setTeam2] = useState<PlayerWithLevel[]>([]);
@@ -101,7 +104,6 @@ export default function MixEscolherTime() {
         initialLevels[user.id] = 5;
       });
       setPlayerLevels(initialLevels);
-      setAvailable(users.map(u => ({ ...u, mixLevel: 5 })));
       setInitialized(true);
     }
   }, [users, initialized]);
@@ -125,15 +127,57 @@ export default function MixEscolherTime() {
     ));
   };
 
-  const resetTeams = () => {
+  const togglePlayerSelection = (playerId: string) => {
+    setSelectedPlayerIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedPlayerIds(new Set(users.map(u => u.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedPlayerIds(new Set());
+  };
+
+  const proceedToBalancing = () => {
+    const selectedPlayers = users
+      .filter(u => selectedPlayerIds.has(u.id))
+      .map(u => getPlayerWithLevel(u));
+    setAvailable(selectedPlayers);
     setTeam1([]);
     setTeam2([]);
-    setAvailable(users.map(u => getPlayerWithLevel(u)));
+    setStep("balancing");
+  };
+
+  const backToSelection = () => {
+    setStep("selection");
+    setTeam1([]);
+    setTeam2([]);
+    setAvailable([]);
+  };
+
+  const resetTeams = () => {
+    const selectedPlayers = users
+      .filter(u => selectedPlayerIds.has(u.id))
+      .map(u => getPlayerWithLevel(u));
+    setTeam1([]);
+    setTeam2([]);
+    setAvailable(selectedPlayers);
   };
 
   const balanceTeams = () => {
-    const playersWithLevels = users.map(u => getPlayerWithLevel(u));
-    const sortedByLevel = [...playersWithLevels].sort((a, b) => b.mixLevel - a.mixLevel);
+    const selectedPlayers = users
+      .filter(u => selectedPlayerIds.has(u.id))
+      .map(u => getPlayerWithLevel(u));
+    const sortedByLevel = [...selectedPlayers].sort((a, b) => b.mixLevel - a.mixLevel);
     
     const newTeam1: PlayerWithLevel[] = [];
     const newTeam2: PlayerWithLevel[] = [];
@@ -156,8 +200,10 @@ export default function MixEscolherTime() {
   };
 
   const balanceByRating = () => {
-    const playersWithLevels = users.map(u => getPlayerWithLevel(u));
-    const sortedByRating = [...playersWithLevels].sort((a, b) => getCachedRating(b) - getCachedRating(a));
+    const selectedPlayers = users
+      .filter(u => selectedPlayerIds.has(u.id))
+      .map(u => getPlayerWithLevel(u));
+    const sortedByRating = [...selectedPlayers].sort((a, b) => getCachedRating(b) - getCachedRating(a));
     
     const newTeam1: PlayerWithLevel[] = [];
     const newTeam2: PlayerWithLevel[] = [];
@@ -229,6 +275,81 @@ export default function MixEscolherTime() {
     if (rating < 1.0) return "text-yellow-500";
     if (rating < 1.3) return "text-blue-500";
     return "text-green-500";
+  };
+
+  const SelectionPlayerCard = ({ player }: { player: User }) => {
+    const isSelected = selectedPlayerIds.has(player.id);
+    const rating = getCachedRating(player);
+    const playerName = player.nickname || player.firstName || "Jogador";
+    const level = playerLevels[player.id] || 5;
+    const isAdmin = currentUser?.isAdmin;
+    
+    return (
+      <div 
+        className={`p-3 rounded-lg border cursor-pointer transition-all ${
+          isSelected 
+            ? "bg-primary/10 border-primary" 
+            : "bg-background/50 hover-elevate"
+        }`}
+        onClick={() => togglePlayerSelection(player.id)}
+        data-testid={`selection-card-${player.id}`}
+      >
+        <div className="flex items-center gap-3">
+          <Checkbox 
+            checked={isSelected}
+            onCheckedChange={() => togglePlayerSelection(player.id)}
+            onClick={(e) => e.stopPropagation()}
+            data-testid={`checkbox-${player.id}`}
+          />
+          <Avatar className="h-10 w-10 shrink-0">
+            <AvatarImage src={player.profileImageUrl || undefined} />
+            <AvatarFallback className="bg-primary/10 text-primary">
+              {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="font-medium truncate max-w-[150px]" data-testid={`text-selection-name-${player.id}`}>
+                  {playerName}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{playerName}</p>
+              </TooltipContent>
+            </Tooltip>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={getLevelBadgeVariant(level)} className="font-mono text-xs">
+                <Star className="h-3 w-3 mr-1" />
+                Nv {level}
+              </Badge>
+              <Badge variant="outline" className={`font-mono text-xs ${getRatingColor(rating)}`}>
+                <TrendingUp className="h-3 w-3 mr-1" />
+                {rating.toFixed(2)}
+              </Badge>
+            </div>
+          </div>
+        </div>
+        
+        {isAdmin && isSelected && (
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
+            <span className="text-xs text-muted-foreground w-12 shrink-0">Nível:</span>
+            <Slider
+              value={[level]}
+              onValueChange={(value) => setPlayerLevel(player.id, value[0])}
+              min={1}
+              max={10}
+              step={1}
+              className="flex-1"
+              data-testid={`slider-selection-level-${player.id}`}
+            />
+            <span className={`font-mono font-bold w-6 text-center shrink-0 ${getLevelColor(level)}`}>
+              {level}
+            </span>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const PlayerCard = ({ 
@@ -353,13 +474,106 @@ export default function MixEscolherTime() {
     );
   }
 
+  if (step === "selection") {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <UserCheck className="h-8 w-8 text-primary" />
+              Selecionar Jogadores
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Selecione os jogadores que vão participar do mix (idealmente 10 para 5v5)
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={clearSelection} data-testid="button-clear-selection">
+              Limpar
+            </Button>
+            <Button variant="outline" onClick={selectAll} data-testid="button-select-all">
+              Selecionar Todos
+            </Button>
+            <Button 
+              onClick={proceedToBalancing} 
+              disabled={selectedPlayerIds.size < 2}
+              data-testid="button-proceed"
+            >
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Continuar ({selectedPlayerIds.size})
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Jogadores Cadastrados
+              </span>
+              <Badge variant={selectedPlayerIds.size === 10 ? "default" : "secondary"}>
+                {selectedPlayerIds.size} selecionados
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Clique para selecionar/desmarcar jogadores. {currentUser?.isAdmin && "Como admin, você pode ajustar o nível dos jogadores selecionados."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {users.map((player) => (
+                <SelectionPlayerCard key={player.id} player={player} />
+              ))}
+            </div>
+            {users.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhum jogador cadastrado
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {selectedPlayerIds.size > 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-primary" />
+                  <span className="font-medium">{selectedPlayerIds.size} jogadores selecionados</span>
+                  {selectedPlayerIds.size === 10 && (
+                    <Badge variant="default">Perfeito para 5v5</Badge>
+                  )}
+                  {selectedPlayerIds.size > 10 && (
+                    <Badge variant="secondary">Mais que 10 jogadores</Badge>
+                  )}
+                  {selectedPlayerIds.size < 10 && selectedPlayerIds.size >= 2 && (
+                    <Badge variant="outline">Menos que 10 jogadores</Badge>
+                  )}
+                </div>
+                <Button 
+                  onClick={proceedToBalancing} 
+                  disabled={selectedPlayerIds.size < 2}
+                  data-testid="button-proceed-footer"
+                >
+                  <Swords className="h-4 w-4 mr-2" />
+                  Balancear Times
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <Swords className="h-8 w-8 text-primary" />
-            Escolher Time do Mix
+            Balancear Times
           </h1>
           <p className="text-muted-foreground mt-1">
             {currentUser?.isAdmin 
@@ -369,6 +583,10 @@ export default function MixEscolherTime() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={backToSelection} data-testid="button-back">
+            <UserCheck className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
           <Button variant="outline" onClick={resetTeams} data-testid="button-reset">
             <RefreshCw className="h-4 w-4 mr-2" />
             Resetar
