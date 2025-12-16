@@ -251,6 +251,23 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          className="justify-between cursor-pointer"
+                          onClick={() => copyToClipboard("connect 103.14.27.41:27273; password 539102", "serverip")}
+                          data-testid="button-copy-serverip"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Gamepad2 className="h-4 w-4" />
+                            <span>IP Servidor Privado</span>
+                          </div>
+                          {copiedLink === "serverip" ? (
+                            <Check className="h-4 w-4 text-green-500" data-testid="icon-copied-serverip" />
+                          ) : (
+                            <Copy className="h-4 w-4 text-muted-foreground" data-testid="icon-copy-serverip" />
+                          )}
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
