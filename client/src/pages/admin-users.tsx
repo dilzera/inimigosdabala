@@ -56,6 +56,7 @@ import {
   Shield,
   Link2,
   GitMerge,
+  RefreshCw,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -145,6 +146,27 @@ export default function AdminUsers() {
     onError: (error: Error) => {
       toast({
         title: "Erro ao mesclar usuários",
+        description: error.message || "Tente novamente mais tarde.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const recalculateAllStatsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/recalculate-all-stats");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ 
+        title: "Estatísticas recalculadas!",
+        description: data.message || "Todas as estatísticas foram atualizadas."
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao recalcular estatísticas",
         description: error.message || "Tente novamente mais tarde.",
         variant: "destructive",
       });
@@ -261,6 +283,15 @@ export default function AdminUsers() {
             Jogadores ({filteredUsers.length})
           </CardTitle>
           <div className="flex items-center gap-4 flex-wrap">
+            <Button 
+              variant="outline" 
+              onClick={() => recalculateAllStatsMutation.mutate()}
+              disabled={recalculateAllStatsMutation.isPending}
+              data-testid="button-recalculate-stats"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${recalculateAllStatsMutation.isPending ? 'animate-spin' : ''}`} />
+              {recalculateAllStatsMutation.isPending ? "Recalculando..." : "Recalcular Stats"}
+            </Button>
             <Button 
               variant="outline" 
               onClick={() => setMergeDialogOpen(true)}

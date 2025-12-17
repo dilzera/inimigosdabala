@@ -116,6 +116,39 @@ export async function registerRoutes(
     }
   });
 
+  // Recalculate all user stats (admin only)
+  app.post('/api/admin/recalculate-all-stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const users = await storage.getAllUsers();
+      const results: { userId: string; success: boolean; error?: string }[] = [];
+      
+      for (const user of users) {
+        try {
+          await storage.recalculateUserStats(user.id);
+          results.push({ userId: user.id, success: true });
+        } catch (err) {
+          results.push({ userId: user.id, success: false, error: String(err) });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      res.json({ 
+        message: `Recalculated stats for ${successCount}/${users.length} users`,
+        results 
+      });
+    } catch (error) {
+      console.error("Error recalculating stats:", error);
+      res.status(500).json({ message: "Failed to recalculate stats" });
+    }
+  });
+
   // Update current user profile (name, photo, steamId) - MUST be before /api/users/:id
   app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
     try {
