@@ -1,11 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Medal, Award, Target, Crosshair, Star } from "lucide-react";
+import { Trophy, Medal, Award, Target, Crosshair, Star, Info, ChevronDown } from "lucide-react";
+import { useState } from "react";
 import type { User } from "@shared/schema";
 
 export default function Rankings() {
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
@@ -93,6 +96,104 @@ export default function Rankings() {
         <Trophy className="h-8 w-8 text-primary" />
         <h1 className="text-3xl font-bold">Melhores Jogadores</h1>
       </div>
+
+      <Collapsible open={isLegendOpen} onOpenChange={setIsLegendOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover-elevate">
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Info className="h-5 w-5 text-primary" />
+                  Como o Skill Rating é Calculado
+                </div>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isLegendOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                O Skill Rating começa em <strong>1000</strong> (valor médio) e é ajustado baseado no desempenho do jogador. O rating final fica entre 100 e 3000.
+              </p>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 font-medium">Fator</th>
+                      <th className="text-left py-2 font-medium">Fórmula</th>
+                      <th className="text-left py-2 font-medium">Explicação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-muted-foreground">
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">K/D Ratio</td>
+                      <td className="py-2 font-mono text-xs">(K/D - 1) × 150</td>
+                      <td className="py-2">K/D acima de 1.0 aumenta, abaixo diminui</td>
+                    </tr>
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">Headshot %</td>
+                      <td className="py-2 font-mono text-xs">(HS% - 30) × 2</td>
+                      <td className="py-2">30% é a média esperada</td>
+                    </tr>
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">ADR</td>
+                      <td className="py-2 font-mono text-xs">(ADR - 70) × 1.5</td>
+                      <td className="py-2">Dano por round - 70 é a média</td>
+                    </tr>
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">Win Rate</td>
+                      <td className="py-2 font-mono text-xs">(WinRate - 50) × 3</td>
+                      <td className="py-2">50% é neutro, vitórias dão bônus</td>
+                    </tr>
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">MVPs</td>
+                      <td className="py-2 font-mono text-xs">MVPs × 2</td>
+                      <td className="py-2">Cada MVP dá +2 pontos</td>
+                    </tr>
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">ACE (5K)</td>
+                      <td className="py-2 font-mono text-xs">5Ks × 30</td>
+                      <td className="py-2">Cada ACE dá +30 pontos</td>
+                    </tr>
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">4K</td>
+                      <td className="py-2 font-mono text-xs">4Ks × 15</td>
+                      <td className="py-2">Cada 4K dá +15 pontos</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 font-medium text-foreground">3K</td>
+                      <td className="py-2 font-mono text-xs">3Ks × 5</td>
+                      <td className="py-2">Cada 3K dá +5 pontos</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mt-4">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-500" />
+                  Exemplo Prático
+                </h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Um jogador com K/D 1.5, 40% HS, 90 ADR, 70% Win Rate e 2 ACEs:
+                </p>
+                <div className="font-mono text-sm space-y-1">
+                  <div>Base: <span className="text-primary">1000</span></div>
+                  <div>K/D 1.5: <span className="text-green-500">+75</span> pontos</div>
+                  <div>40% HS: <span className="text-green-500">+20</span> pontos</div>
+                  <div>90 ADR: <span className="text-green-500">+30</span> pontos</div>
+                  <div>70% Win Rate: <span className="text-green-500">+60</span> pontos</div>
+                  <div>2 ACEs: <span className="text-green-500">+60</span> pontos</div>
+                  <div className="border-t border-border/50 pt-1 mt-2">
+                    <strong>Total: <span className="text-primary">1245</span> Skill Rating</strong>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
