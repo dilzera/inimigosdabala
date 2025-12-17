@@ -29,7 +29,13 @@ export default function Rankings() {
     const hsB = b.totalKills > 0 ? (b.totalHeadshots / b.totalKills) * 100 : 0;
     return hsB - hsA;
   });
-  const sortedByMVPs = [...users].sort((a, b) => b.totalMvps - a.totalMvps);
+  const sortedByWinRate = [...users]
+    .filter(u => u.totalMatches > 0)
+    .sort((a, b) => {
+      const winRateA = a.totalMatches > 0 ? (a.matchesWon / a.totalMatches) * 100 : 0;
+      const winRateB = b.totalMatches > 0 ? (b.matchesWon / b.totalMatches) * 100 : 0;
+      return winRateB - winRateA;
+    });
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -159,19 +165,24 @@ export default function Rankings() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Medal className="h-5 w-5 text-purple-500" />
-              Ranking por MVPs
+              <Trophy className="h-5 w-5 text-green-500" />
+              Ranking por Taxa de Vitória
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {sortedByMVPs.slice(0, 10).map((player, index) => (
-              <PlayerRow
-                key={player.id}
-                player={player}
-                index={index}
-                stat={player.totalMvps.toString()}
-              />
-            ))}
+            {sortedByWinRate.slice(0, 10).map((player, index) => {
+              const winRate = player.totalMatches > 0
+                ? ((player.matchesWon / player.totalMatches) * 100).toFixed(1)
+                : "0.0";
+              return (
+                <PlayerRow
+                  key={player.id}
+                  player={player}
+                  index={index}
+                  stat={`${winRate}%`}
+                />
+              );
+            })}
           </CardContent>
         </Card>
       </div>
