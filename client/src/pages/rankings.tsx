@@ -18,24 +18,24 @@ export default function Rankings() {
     );
   }
 
-  const sortedByRating = [...users].sort((a, b) => b.skillRating - a.skillRating);
-  const sortedByKD = [...users].sort((a, b) => {
+  const playersWithMatches = users.filter(u => u.totalMatches > 0);
+  
+  const sortedByRating = [...playersWithMatches].sort((a, b) => b.skillRating - a.skillRating);
+  const sortedByKD = [...playersWithMatches].sort((a, b) => {
     const kdA = a.totalDeaths > 0 ? a.totalKills / a.totalDeaths : a.totalKills;
     const kdB = b.totalDeaths > 0 ? b.totalKills / b.totalDeaths : b.totalKills;
     return kdB - kdA;
   });
-  const sortedByHeadshots = [...users].sort((a, b) => {
+  const sortedByHeadshots = [...playersWithMatches].sort((a, b) => {
     const hsA = a.totalKills > 0 ? (a.totalHeadshots / a.totalKills) * 100 : 0;
     const hsB = b.totalKills > 0 ? (b.totalHeadshots / b.totalKills) * 100 : 0;
     return hsB - hsA;
   });
-  const sortedByWinRate = [...users]
-    .filter(u => u.totalMatches > 0)
-    .sort((a, b) => {
-      const winRateA = a.totalMatches > 0 ? (a.matchesWon / a.totalMatches) * 100 : 0;
-      const winRateB = b.totalMatches > 0 ? (b.matchesWon / b.totalMatches) * 100 : 0;
-      return winRateB - winRateA;
-    });
+  const sortedByWinRate = [...playersWithMatches].sort((a, b) => {
+    const winRateA = (a.matchesWon / a.totalMatches) * 100;
+    const winRateB = (b.matchesWon / b.totalMatches) * 100;
+    return winRateB - winRateA;
+  });
 
   const getRankIcon = (index: number) => {
     switch (index) {
