@@ -2,13 +2,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { History, Trophy, Target, Skull, Calendar, MapPin } from "lucide-react";
+import { History, Trophy, Target, Skull, Calendar, CheckCircle, XCircle, TrendingUp } from "lucide-react";
 import type { MatchStats, Match } from "@shared/schema";
+
+type MatchStatsWithMatch = {
+  stats: MatchStats;
+  match: Match;
+};
 
 export default function PartidasMinhas() {
   const { user } = useAuth();
   
-  const { data: matchStats = [], isLoading } = useQuery<MatchStats[]>({
+  const { data: matchData = [], isLoading } = useQuery<MatchStatsWithMatch[]>({
     queryKey: ["/api/users", user?.id, "matches"],
     enabled: !!user?.id,
   });
@@ -21,11 +26,36 @@ export default function PartidasMinhas() {
     );
   }
 
-  const totalPartidas = matchStats.length;
-  const totalKills = matchStats.reduce((sum, m) => sum + m.kills, 0);
-  const totalDeaths = matchStats.reduce((sum, m) => sum + m.deaths, 0);
-  const totalMvps = matchStats.reduce((sum, m) => sum + m.mvps, 0);
+  const totalPartidas = matchData.length;
+  const totalKills = matchData.reduce((sum, m) => sum + m.stats.kills, 0);
+  const totalDeaths = matchData.reduce((sum, m) => sum + m.stats.deaths, 0);
   const avgKD = totalDeaths > 0 ? (totalKills / totalDeaths).toFixed(2) : totalKills.toFixed(2);
+
+  const getMatchResult = (item: MatchStatsWithMatch): "win" | "loss" | "unknown" => {
+    const { stats, match } = item;
+    const playerTeam = stats.team;
+    
+    if (match.winnerTeam) {
+      return match.winnerTeam === playerTeam ? "win" : "loss";
+    }
+    
+    const team1Name = match.team1Name;
+    const isTeam1 = playerTeam === team1Name;
+    const team1Score = match.team1Score || 0;
+    const team2Score = match.team2Score || 0;
+    
+    if (team1Score === team2Score) return "unknown";
+    
+    if (isTeam1) {
+      return team1Score > team2Score ? "win" : "loss";
+    } else {
+      return team2Score > team1Score ? "win" : "loss";
+    }
+  };
+
+  const victories = matchData.filter(m => getMatchResult(m) === "win").length;
+  const defeats = matchData.filter(m => getMatchResult(m) === "loss").length;
+  const winRate = totalPartidas > 0 ? ((victories / totalPartidas) * 100).toFixed(0) : "0";
 
   return (
     <div className="space-y-6">
@@ -34,38 +64,48 @@ export default function PartidasMinhas() {
         <h1 className="text-3xl font-bold">Minhas Partidas</h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
               <Trophy className="h-8 w-8 mx-auto mb-2 text-primary" />
               <div className="text-2xl font-bold font-mono">{totalPartidas}</div>
-              <div className="text-sm text-muted-foreground">Partidas Jogadas</div>
+              <div className="text-sm text-muted-foreground">Partidas</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <Target className="h-8 w-8 mx-auto mb-2 text-green-500" />
-              <div className="text-2xl font-bold font-mono text-green-500">{totalKills}</div>
-              <div className="text-sm text-muted-foreground">Total de Kills</div>
+              <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+              <div className="text-2xl font-bold font-mono text-green-500">{victories}</div>
+              <div className="text-sm text-muted-foreground">Vitórias</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <Skull className="h-8 w-8 mx-auto mb-2 text-red-500" />
-              <div className="text-2xl font-bold font-mono text-red-500">{totalDeaths}</div>
-              <div className="text-sm text-muted-foreground">Total de Deaths</div>
+              <XCircle className="h-8 w-8 mx-auto mb-2 text-red-500" />
+              <div className="text-2xl font-bold font-mono text-red-500">{defeats}</div>
+              <div className="text-sm text-muted-foreground">Derrotas</div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-2xl font-bold font-mono">{avgKD}</div>
+              <TrendingUp className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+              <div className="text-2xl font-bold font-mono text-blue-500">{winRate}%</div>
+              <div className="text-sm text-muted-foreground">Win Rate</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <Target className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
+              <div className="text-2xl font-bold font-mono text-yellow-500">{avgKD}</div>
               <div className="text-sm text-muted-foreground">K/D Médio</div>
             </div>
           </CardContent>
@@ -82,57 +122,89 @@ export default function PartidasMinhas() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {matchStats.length > 0 ? (
+          {matchData.length > 0 ? (
             <div className="space-y-4">
-              {matchStats.map((stat) => (
-                <div
-                  key={stat.id}
-                  className="flex items-center justify-between p-4 bg-background/50 rounded-lg border"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded ${stat.team === 1 ? 'bg-blue-500/20' : 'bg-orange-500/20'}`}>
-                      <Badge variant={stat.team === 1 ? "default" : "secondary"}>
-                        {stat.team === 1 ? "CT" : "TR"}
-                      </Badge>
-                    </div>
-                    <div>
-                      <div className="font-medium">
-                        Partida #{stat.matchId.slice(0, 8)}
+              {matchData.map((item) => {
+                const result = getMatchResult(item);
+                const { stats, match } = item;
+                const isTeam1 = stats.team === match.team1Name;
+                const playerScore = isTeam1 ? match.team1Score : match.team2Score;
+                const opponentScore = isTeam1 ? match.team2Score : match.team1Score;
+                
+                return (
+                  <div
+                    key={stats.id}
+                    className={`flex items-center justify-between p-4 rounded-lg border ${
+                      result === "win" 
+                        ? "bg-green-500/5 border-green-500/30" 
+                        : result === "loss" 
+                          ? "bg-red-500/5 border-red-500/30"
+                          : "bg-background/50"
+                    }`}
+                    data-testid={`match-row-${stats.id}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded ${
+                        result === "win" 
+                          ? "bg-green-500/20" 
+                          : result === "loss" 
+                            ? "bg-red-500/20" 
+                            : "bg-muted"
+                      }`}>
+                        {result === "win" ? (
+                          <CheckCircle className="h-6 w-6 text-green-500" />
+                        ) : result === "loss" ? (
+                          <XCircle className="h-6 w-6 text-red-500" />
+                        ) : (
+                          <Trophy className="h-6 w-6 text-muted-foreground" />
+                        )}
                       </div>
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {stat.createdAt ? new Date(stat.createdAt).toLocaleDateString('pt-BR') : '-'}
-                        </span>
+                      <div>
+                        <div className="font-medium flex items-center gap-2">
+                          {match.map}
+                          <Badge variant={result === "win" ? "default" : result === "loss" ? "destructive" : "secondary"}>
+                            {result === "win" ? "Vitória" : result === "loss" ? "Derrota" : "---"}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {match.date ? new Date(match.date).toLocaleDateString('pt-BR') : '-'}
+                          </span>
+                          <span className="font-mono font-bold">
+                            {playerScore} - {opponentScore}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {stats.team}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 md:gap-6">
+                      <div className="text-center">
+                        <div className="font-mono font-bold text-green-500">{stats.kills}</div>
+                        <div className="text-xs text-muted-foreground">K</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-mono font-bold text-red-500">{stats.deaths}</div>
+                        <div className="text-xs text-muted-foreground">D</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-mono font-bold">{stats.assists}</div>
+                        <div className="text-xs text-muted-foreground">A</div>
+                      </div>
+                      <div className="text-center hidden sm:block">
+                        <div className="font-mono font-bold text-yellow-500">{stats.headshots}</div>
+                        <div className="text-xs text-muted-foreground">HS</div>
+                      </div>
+                      <div className="text-center hidden sm:block">
+                        <div className="font-mono font-bold text-blue-500">{stats.damage}</div>
+                        <div className="text-xs text-muted-foreground">DMG</div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-center">
-                      <div className="font-mono font-bold text-green-500">{stat.kills}</div>
-                      <div className="text-xs text-muted-foreground">Kills</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-mono font-bold text-red-500">{stat.deaths}</div>
-                      <div className="text-xs text-muted-foreground">Deaths</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-mono font-bold">{stat.assists}</div>
-                      <div className="text-xs text-muted-foreground">Assists</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-mono font-bold text-yellow-500">{stat.headshots}</div>
-                      <div className="text-xs text-muted-foreground">HS</div>
-                    </div>
-                    {stat.mvps > 0 && (
-                      <Badge variant="default" className="flex items-center gap-1">
-                        <Trophy className="h-3 w-3" />
-                        {stat.mvps} MVP
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-12">

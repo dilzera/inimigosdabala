@@ -43,6 +43,7 @@ export interface IStorage {
   // Match stats operations
   getMatchStats(matchId: string): Promise<MatchStats[]>;
   getUserMatchStats(userId: string): Promise<MatchStats[]>;
+  getUserMatchStatsWithMatches(userId: string): Promise<Array<{ stats: MatchStats; match: Match }>>;
   createMatchStats(stats: InsertMatchStats): Promise<MatchStats>;
   
   // Payment operations
@@ -151,42 +152,92 @@ export class DatabaseStorage implements IStorage {
   }
 
   async recalculateUserStats(userId: string): Promise<User | undefined> {
-    // Get all match stats for this user
-    const userMatchStats = await db
-      .select()
+    // Get all match stats for this user with match data joined
+    const userMatchStatsWithMatch = await db
+      .select({
+        stats: matchStats,
+        match: matches,
+      })
       .from(matchStats)
+      .innerJoin(matches, eq(matchStats.matchId, matches.id))
       .where(eq(matchStats.userId, userId));
 
-    if (userMatchStats.length === 0) {
+    if (userMatchStatsWithMatch.length === 0) {
       return await this.getUser(userId);
     }
 
-    // Aggregate stats
-    const aggregated = userMatchStats.reduce((acc, stat) => ({
-      totalKills: acc.totalKills + stat.kills,
-      totalDeaths: acc.totalDeaths + stat.deaths,
-      totalAssists: acc.totalAssists + stat.assists,
-      totalHeadshots: acc.totalHeadshots + stat.headshots,
-      totalDamage: acc.totalDamage + stat.damage,
-      totalMatches: acc.totalMatches + 1,
-      totalMvps: acc.totalMvps + stat.mvps,
-      total1v1Count: acc.total1v1Count + stat.v1Count,
-      total1v1Wins: acc.total1v1Wins + stat.v1Wins,
-      total1v2Count: acc.total1v2Count + stat.v2Count,
-      total1v2Wins: acc.total1v2Wins + stat.v2Wins,
-      totalEntryCount: acc.totalEntryCount + stat.entryCount,
-      totalEntryWins: acc.totalEntryWins + stat.entryWins,
-      total5ks: acc.total5ks + stat.enemy5ks,
-      total4ks: acc.total4ks + stat.enemy4ks,
-      total3ks: acc.total3ks + stat.enemy3ks,
-      total2ks: acc.total2ks + stat.enemy2ks,
-      totalFlashCount: acc.totalFlashCount + stat.flashCount,
-      totalFlashSuccesses: acc.totalFlashSuccesses + stat.flashSuccesses,
-      totalEnemiesFlashed: acc.totalEnemiesFlashed + stat.enemiesFlashed,
-      totalUtilityDamage: acc.totalUtilityDamage + stat.utilityDamage,
-      totalShotsFired: acc.totalShotsFired + stat.shotsFiredTotal,
-      totalShotsOnTarget: acc.totalShotsOnTarget + stat.shotsOnTargetTotal,
-    }), {
+    // Aggregate stats including rounds and wins/losses
+    let totalRoundsPlayed = 0;
+    let roundsWon = 0;
+    let matchesWon = 0;
+    let matchesLost = 0;
+
+    const aggregated = userMatchStatsWithMatch.reduce((acc, { stats: stat, match }) => {
+      // Calculate rounds played (sum of both team scores)
+      const matchRounds = (match.team1Score || 0) + (match.team2Score || 0);
+      totalRoundsPlayed += matchRounds;
+
+      // Determine if player's team won
+      const playerTeam = stat.team;
+      const team1Name = match.team1Name;
+      const isTeam1 = playerTeam === team1Name;
+      
+      // Calculate rounds won for this player based on their team
+      if (isTeam1) {
+        roundsWon += match.team1Score || 0;
+      } else {
+        roundsWon += match.team2Score || 0;
+      }
+
+      // Determine match win/loss based on winnerTeam
+      if (match.winnerTeam) {
+        if (match.winnerTeam === playerTeam) {
+          matchesWon++;
+        } else {
+          matchesLost++;
+        }
+      } else {
+        // Fallback: compare scores if no winner specified
+        const team1Score = match.team1Score || 0;
+        const team2Score = match.team2Score || 0;
+        if (team1Score !== team2Score) {
+          if (isTeam1 && team1Score > team2Score) {
+            matchesWon++;
+          } else if (!isTeam1 && team2Score > team1Score) {
+            matchesWon++;
+          } else {
+            matchesLost++;
+          }
+        }
+        // If scores are equal (tie), don't count as win or loss
+      }
+
+      return {
+        totalKills: acc.totalKills + stat.kills,
+        totalDeaths: acc.totalDeaths + stat.deaths,
+        totalAssists: acc.totalAssists + stat.assists,
+        totalHeadshots: acc.totalHeadshots + stat.headshots,
+        totalDamage: acc.totalDamage + stat.damage,
+        totalMatches: acc.totalMatches + 1,
+        totalMvps: acc.totalMvps + stat.mvps,
+        total1v1Count: acc.total1v1Count + stat.v1Count,
+        total1v1Wins: acc.total1v1Wins + stat.v1Wins,
+        total1v2Count: acc.total1v2Count + stat.v2Count,
+        total1v2Wins: acc.total1v2Wins + stat.v2Wins,
+        totalEntryCount: acc.totalEntryCount + stat.entryCount,
+        totalEntryWins: acc.totalEntryWins + stat.entryWins,
+        total5ks: acc.total5ks + stat.enemy5ks,
+        total4ks: acc.total4ks + stat.enemy4ks,
+        total3ks: acc.total3ks + stat.enemy3ks,
+        total2ks: acc.total2ks + stat.enemy2ks,
+        totalFlashCount: acc.totalFlashCount + stat.flashCount,
+        totalFlashSuccesses: acc.totalFlashSuccesses + stat.flashSuccesses,
+        totalEnemiesFlashed: acc.totalEnemiesFlashed + stat.enemiesFlashed,
+        totalUtilityDamage: acc.totalUtilityDamage + stat.utilityDamage,
+        totalShotsFired: acc.totalShotsFired + stat.shotsFiredTotal,
+        totalShotsOnTarget: acc.totalShotsOnTarget + stat.shotsOnTargetTotal,
+      };
+    }, {
       totalKills: 0,
       totalDeaths: 0,
       totalAssists: 0,
@@ -212,17 +263,33 @@ export class DatabaseStorage implements IStorage {
       totalShotsOnTarget: 0,
     });
 
-    // Calculate skill rating based on performance
+    // Calculate skill rating based on performance with proper ADR
     const kd = aggregated.totalDeaths > 0 ? aggregated.totalKills / aggregated.totalDeaths : aggregated.totalKills;
     const hsPercent = aggregated.totalKills > 0 ? (aggregated.totalHeadshots / aggregated.totalKills) * 100 : 0;
-    const adr = aggregated.totalMatches > 0 ? aggregated.totalDamage / aggregated.totalMatches : 0;
-    const skillRating = Math.round(1000 + (kd * 100) + (hsPercent * 2) + (adr / 10));
+    const adr = totalRoundsPlayed > 0 ? aggregated.totalDamage / totalRoundsPlayed : 0;
+    const winRate = aggregated.totalMatches > 0 ? (matchesWon / aggregated.totalMatches) * 100 : 50;
+    
+    const skillRating = Math.round(
+      1000 +
+      (kd - 1) * 150 +           // K/D impact
+      (hsPercent - 30) * 2 +     // HS% impact (30% is average)
+      (adr - 70) * 1.5 +         // ADR impact (70 is average)
+      (winRate - 50) * 3 +       // Win rate impact
+      aggregated.totalMvps * 2 + // MVP bonus
+      aggregated.total5ks * 30 + // ACE bonus
+      aggregated.total4ks * 15 + // 4K bonus
+      aggregated.total3ks * 5    // 3K bonus
+    );
 
     const [user] = await db
       .update(users)
       .set({
         ...aggregated,
-        skillRating,
+        totalRoundsPlayed,
+        roundsWon,
+        matchesWon,
+        matchesLost,
+        skillRating: Math.max(100, Math.min(3000, skillRating)),
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId))
@@ -271,6 +338,18 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(matchStats)
       .where(eq(matchStats.userId, userId));
+  }
+
+  async getUserMatchStatsWithMatches(userId: string): Promise<Array<{ stats: MatchStats; match: Match }>> {
+    return await db
+      .select({
+        stats: matchStats,
+        match: matches,
+      })
+      .from(matchStats)
+      .innerJoin(matches, eq(matchStats.matchId, matches.id))
+      .where(eq(matchStats.userId, userId))
+      .orderBy(sql`${matches.date} DESC`);
   }
 
   async createMatchStats(stats: InsertMatchStats): Promise<MatchStats> {
@@ -379,26 +458,22 @@ export class DatabaseStorage implements IStorage {
     const totalShotsFired = (targetUser.totalShotsFired || 0) + (sourceUser.totalShotsFired || 0);
     const totalShotsOnTarget = (targetUser.totalShotsOnTarget || 0) + (sourceUser.totalShotsOnTarget || 0);
 
-    // Recalculate skill rating based on merged stats
-    const kd = totalDeaths > 0 ? totalKills / totalDeaths : totalKills;
-    const hsPercent = totalKills > 0 ? (totalHeadshots / totalKills) * 100 : 0;
-    const adr = totalRoundsPlayed > 0 ? totalDamage / totalRoundsPlayed : 0;
-    const winRate = totalMatches > 0 ? (matchesWon / totalMatches) * 100 : 50;
+    // Calculate skill rating using weighted average based on matches played
+    const sourceMatches = sourceUser.totalMatches || 0;
+    const targetMatches = targetUser.totalMatches || 0;
+    const sourceRating = sourceUser.skillRating || 1000;
+    const targetRating = targetUser.skillRating || 1000;
     
-    // Rating formula: base 1000 + performance modifiers
-    const skillRating = Math.round(
-      1000 +
-      (kd - 1) * 200 +           // K/D impact
-      (hsPercent - 30) * 3 +     // HS% impact (30% is average)
-      (adr - 70) * 2 +           // ADR impact (70 is average)
-      (winRate - 50) * 4 +       // Win rate impact
-      totalMvps * 2 +            // MVP bonus
-      total5ks * 50 +            // ACE bonus
-      total4ks * 25 +            // 4K bonus
-      total3ks * 10 +            // 3K bonus
-      total1v1Wins * 5 +         // Clutch bonus
-      total1v2Wins * 15          // 1v2 clutch bonus
-    );
+    let skillRating: number;
+    if (sourceMatches + targetMatches > 0) {
+      // Weighted average based on matches played
+      skillRating = Math.round(
+        (sourceRating * sourceMatches + targetRating * targetMatches) / (sourceMatches + targetMatches)
+      );
+    } else {
+      // If both have 0 matches, just average the ratings
+      skillRating = Math.round((sourceRating + targetRating) / 2);
+    }
 
     const mergedStats = {
       totalKills,
