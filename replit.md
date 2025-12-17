@@ -22,7 +22,9 @@ The sidebar navigation includes the following sections:
 
 3. **Melhores Jogadores** - Player rankings with multiple categories
 
-4. **Servidor** (Collapsible)
+4. **Piores Jogadores** - Worst player rankings (Skill Rating, K/D, HS%, Win Rate)
+
+5. **Servidor** (Collapsible)
    - Comandos do Servidor - Server commands reference
    - Mapas de Treino - Training maps with Workshop links
    - Como Colocar as Skins - Skin customization guide
@@ -47,6 +49,7 @@ The sidebar navigation includes the following sections:
 - `/perfil` - User profile page
 - `/mix/escolher-time` - Team selection for MIX
 - `/rankings` - Player leaderboards
+- `/piores-jogadores` - Worst player rankings
 - `/servidor/comandos` - Server commands
 - `/servidor/mapas` - Training maps
 - `/servidor/skins` - Skin guide
