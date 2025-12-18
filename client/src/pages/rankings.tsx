@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Medal, Award, Target, Crosshair, Star, Info, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
 import type { User } from "@shared/schema";
 
 export default function Rankings() {
@@ -72,16 +73,18 @@ export default function Rankings() {
         <div className="flex items-center justify-center w-8">
           {getRankIcon(index)}
         </div>
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={player.profileImageUrl || undefined} />
-          <AvatarFallback className="bg-primary/10 text-primary">
-            {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <div className="font-medium">{player.nickname || player.firstName || "Jogador"}</div>
-          <div className="text-xs text-muted-foreground">{player.totalMatches} partidas</div>
-        </div>
+        <Link href={`/jogador/${player.id}`} className="flex items-center gap-4 hover:opacity-80 transition-opacity" data-testid={`link-player-${player.id}`}>
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={player.profileImageUrl || undefined} />
+            <AvatarFallback className="bg-primary/10 text-primary">
+              {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium hover:text-primary transition-colors">{player.nickname || player.firstName || "Jogador"}</div>
+            <div className="text-xs text-muted-foreground">{player.totalMatches} partidas</div>
+          </div>
+        </Link>
       </div>
       <div className="flex items-center gap-3">
         <span className="font-mono font-bold text-xl">{stat}</span>

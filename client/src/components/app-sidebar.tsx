@@ -206,6 +206,19 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/comparar-jogadores"}
+                  data-testid="nav-comparar-jogadores"
+                >
+                  <Link href="/comparar-jogadores">
+                    <Users className="h-4 w-4" />
+                    <span>Comparar Players</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               <Collapsible className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>

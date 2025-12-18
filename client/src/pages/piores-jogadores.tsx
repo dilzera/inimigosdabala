@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import { Skull, AlertTriangle, Target, Crosshair, TrendingDown } from "lucide-react";
+import { Link } from "wouter";
 import type { User } from "@shared/schema";
 
 export default function PioresJogadores() {
@@ -77,16 +78,18 @@ export default function PioresJogadores() {
         <div className="flex items-center justify-center w-8">
           {getRankIcon(index)}
         </div>
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={player.profileImageUrl || undefined} />
-          <AvatarFallback className="bg-red-500/10 text-red-500">
-            {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <div className="font-medium">{player.nickname || player.firstName || "Jogador"}</div>
-          <div className="text-xs text-muted-foreground">{player.totalMatches} partidas</div>
-        </div>
+        <Link href={`/jogador/${player.id}`} className="flex items-center gap-4 hover:opacity-80 transition-opacity" data-testid={`link-worst-player-${player.id}`}>
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={player.profileImageUrl || undefined} />
+            <AvatarFallback className="bg-red-500/10 text-red-500">
+              {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="font-medium hover:text-primary transition-colors">{player.nickname || player.firstName || "Jogador"}</div>
+            <div className="text-xs text-muted-foreground">{player.totalMatches} partidas</div>
+          </div>
+        </Link>
       </div>
       <div className="flex items-center gap-3">
         <span className="font-mono font-bold text-xl text-red-400">{stat}</span>
