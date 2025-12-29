@@ -39,6 +39,12 @@ export default function Patrocinadores() {
     .sort((a, b) => b.total - a.total);
 
   const totalArrecadado = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  // Categoriza contribuintes por nível baseado no total doado
+  const diamanteContributors = sortedContributors.filter(c => c.total >= 50);
+  const ouroContributors = sortedContributors.filter(c => c.total >= 20 && c.total < 50);
+  const prataContributors = sortedContributors.filter(c => c.total < 20);
+
   const patrocinadores = [
     {
       nivel: "Diamante",
@@ -46,13 +52,8 @@ export default function Patrocinadores() {
       cor: "text-blue-400",
       bgCor: "bg-blue-500/10",
       borderCor: "border-blue-500/30",
-      lista: [
-        {
-          nome: "Seu nome aqui",
-          descricao: "Seja um patrocinador Diamante",
-          link: "#",
-        },
-      ],
+      minValue: 50,
+      contributors: diamanteContributors,
     },
     {
       nivel: "Ouro",
@@ -60,13 +61,8 @@ export default function Patrocinadores() {
       cor: "text-yellow-400",
       bgCor: "bg-yellow-500/10",
       borderCor: "border-yellow-500/30",
-      lista: [
-        {
-          nome: "Seu nome aqui",
-          descricao: "Seja um patrocinador Ouro",
-          link: "#",
-        },
-      ],
+      minValue: 20,
+      contributors: ouroContributors,
     },
     {
       nivel: "Prata",
@@ -74,19 +70,15 @@ export default function Patrocinadores() {
       cor: "text-gray-400",
       bgCor: "bg-gray-500/10",
       borderCor: "border-gray-500/30",
-      lista: [
-        {
-          nome: "Seu nome aqui",
-          descricao: "Seja um patrocinador Prata",
-          link: "#",
-        },
-      ],
+      minValue: 0,
+      contributors: prataContributors,
     },
   ];
 
   const beneficios = [
     {
       nivel: "Diamante",
+      valor: "R$ 50+",
       items: [
         "Logo em destaque no site",
         "Menção especial no Discord",
@@ -97,6 +89,7 @@ export default function Patrocinadores() {
     },
     {
       nivel: "Ouro",
+      valor: "R$ 20-50",
       items: [
         "Logo no site",
         "Menção no Discord",
@@ -106,6 +99,7 @@ export default function Patrocinadores() {
     },
     {
       nivel: "Prata",
+      valor: "< R$ 20",
       items: [
         "Nome listado no site",
         "VIP no servidor por 3 meses",
@@ -206,39 +200,48 @@ export default function Patrocinadores() {
               <CardTitle className="flex items-center gap-3">
                 <categoria.icon className={`h-6 w-6 ${categoria.cor}`} />
                 <span>Patrocinadores {categoria.nivel}</span>
+                <Badge variant="outline" className={`ml-auto ${categoria.cor}`}>
+                  {categoria.nivel === "Diamante" ? "R$ 50+" : 
+                   categoria.nivel === "Ouro" ? "R$ 20-50" : "< R$ 20"}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              {categoria.lista.length > 0 ? (
+              {categoria.contributors.length > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {categoria.lista.map((patrocinador, index) => (
+                  {categoria.contributors.map((contributor) => (
                     <div
-                      key={index}
-                      className="flex items-center justify-between p-4 bg-background/50 rounded-lg border"
+                      key={contributor.user?.id}
+                      className="flex items-center gap-4 p-4 bg-background/50 rounded-lg border"
+                      data-testid={`sponsor-${categoria.nivel.toLowerCase()}-${contributor.user?.id}`}
                     >
-                      <div>
-                        <div className="font-medium">{patrocinador.nome}</div>
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={contributor.user?.profileImageUrl || undefined} />
+                        <AvatarFallback className={`${categoria.bgCor} ${categoria.cor}`}>
+                          {contributor.user?.nickname?.slice(0, 2).toUpperCase() || 
+                           contributor.user?.firstName?.[0] || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">
+                          {contributor.user?.nickname || contributor.user?.firstName || "Jogador"}
+                        </div>
                         <div className="text-sm text-muted-foreground">
-                          {patrocinador.descricao}
+                          {contributor.count} contribuição{contributor.count > 1 ? "ões" : ""}
                         </div>
                       </div>
-                      {patrocinador.link !== "#" && (
-                        <Button size="icon" variant="ghost" asChild>
-                          <a
-                            href={patrocinador.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      )}
+                      <div className="text-right">
+                        <div className={`font-mono font-bold ${categoria.cor}`}>
+                          R$ {contributor.total.toFixed(2)}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground py-4">
-                  Nenhum patrocinador neste nível ainda. Seja o primeiro!
+                  Nenhum patrocinador neste nível ainda. Doe {categoria.nivel === "Diamante" ? "R$ 50+" : 
+                   categoria.nivel === "Ouro" ? "R$ 20 ou mais" : "qualquer valor"} para aparecer aqui!
                 </p>
               )}
             </CardContent>
@@ -262,9 +265,10 @@ export default function Patrocinadores() {
                   key={beneficio.nivel}
                   className={`p-4 rounded-lg border-2 ${categoria?.borderCor} ${categoria?.bgCor}`}
                 >
-                  <h4 className={`font-bold mb-3 ${categoria?.cor}`}>
+                  <h4 className={`font-bold mb-1 ${categoria?.cor}`}>
                     {beneficio.nivel}
                   </h4>
+                  <p className="text-sm text-muted-foreground mb-3">{beneficio.valor}</p>
                   <ul className="space-y-2">
                     {beneficio.items.map((item, index) => (
                       <li key={index} className="flex items-start gap-2 text-sm">
