@@ -183,6 +183,19 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
+                  isActive={location === "/jogadores"}
+                  data-testid="nav-jogadores"
+                >
+                  <Link href="/jogadores">
+                    <Users className="h-4 w-4" />
+                    <span>Jogadores</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
                   isActive={location === "/rankings"}
                   data-testid="nav-rankings"
                 >

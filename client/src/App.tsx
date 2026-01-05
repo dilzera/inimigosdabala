@@ -30,6 +30,7 @@ import PioresJogadores from "@/pages/piores-jogadores";
 import PerfilJogador from "@/pages/perfil-jogador";
 import CompararJogadores from "@/pages/comparar-jogadores";
 import MapasMaisJogados from "@/pages/mapas-mais-jogados";
+import Jogadores from "@/pages/jogadores";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/" component={user?.isAdmin ? AdminDashboard : Dashboard} />
       <Route path="/perfil" component={Perfil} />
       <Route path="/mix/escolher-time" component={MixEscolherTime} />
+      <Route path="/jogadores" component={Jogadores} />
       <Route path="/rankings" component={Rankings} />
       <Route path="/piores-jogadores" component={PioresJogadores} />
       <Route path="/jogador/:id" component={PerfilJogador} />
