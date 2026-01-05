@@ -411,6 +411,18 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/partidas/mapas"}
+                          data-testid="nav-mapas-mais-jogados"
+                        >
+                          <Link href="/partidas/mapas">
+                            <Map className="h-4 w-4" />
+                            <span>Mapas Mais Jogados</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>

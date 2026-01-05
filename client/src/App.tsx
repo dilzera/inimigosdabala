@@ -29,6 +29,7 @@ import AdminDenuncias from "@/pages/admin-denuncias";
 import PioresJogadores from "@/pages/piores-jogadores";
 import PerfilJogador from "@/pages/perfil-jogador";
 import CompararJogadores from "@/pages/comparar-jogadores";
+import MapasMaisJogados from "@/pages/mapas-mais-jogados";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
@@ -73,6 +74,7 @@ function Router() {
       <Route path="/denuncias" component={Denuncias} />
       <Route path="/partidas/minhas" component={PartidasMinhas} />
       <Route path="/partidas/todas" component={PartidasTodas} />
+      <Route path="/partidas/mapas" component={MapasMaisJogados} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/import" component={AdminImport} />
       <Route path="/admin/financeiro" component={AdminFinanceiro} />

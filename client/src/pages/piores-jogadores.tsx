@@ -19,7 +19,7 @@ export default function PioresJogadores() {
     );
   }
 
-  const usersWithMatches = users.filter(u => u.totalMatches > 0);
+  const usersWithMatches = users.filter(u => u.totalMatches >= 3);
 
   const sortedByRating = [...usersWithMatches].sort((a, b) => a.skillRating - b.skillRating);
   

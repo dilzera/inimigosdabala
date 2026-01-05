@@ -22,7 +22,7 @@ export default function Rankings() {
     );
   }
 
-  const playersWithMatches = users.filter(u => u.totalMatches > 0);
+  const playersWithMatches = users.filter(u => u.totalMatches >= 3);
   
   const sortedByRating = [...playersWithMatches].sort((a, b) => b.skillRating - a.skillRating);
   const sortedByKD = [...playersWithMatches].sort((a, b) => {
