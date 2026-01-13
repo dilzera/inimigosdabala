@@ -32,6 +32,7 @@ import CompararJogadores from "@/pages/comparar-jogadores";
 import MapasMaisJogados from "@/pages/mapas-mais-jogados";
 import Jogadores from "@/pages/jogadores";
 import Campeonato from "@/pages/campeonato";
+import AdminCampeonato from "@/pages/admin-campeonato";
 import { ServerCostPopup } from "@/components/server-cost-popup";
 import { AcePopup } from "@/components/ace-popup";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
@@ -85,6 +86,7 @@ function Router() {
       <Route path="/admin/import" component={AdminImport} />
       <Route path="/admin/financeiro" component={AdminFinanceiro} />
       <Route path="/admin/denuncias" component={AdminDenuncias} />
+      <Route path="/admin/campeonato" component={AdminCampeonato} />
       <Route component={NotFound} />
     </Switch>
   );

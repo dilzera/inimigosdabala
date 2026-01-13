@@ -729,5 +729,77 @@ export async function registerRoutes(
     }
   });
 
+  // Championship registration routes
+  app.get('/api/championship-registrations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const registrations = await storage.getAllChampionshipRegistrations();
+      res.json(registrations);
+    } catch (error) {
+      console.error("Error fetching championship registrations:", error);
+      res.status(500).json({ message: "Failed to fetch registrations" });
+    }
+  });
+
+  app.get('/api/championship-registrations/me', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const registration = await storage.getChampionshipRegistrationByUser(userId);
+      res.json({ registered: !!registration, registration });
+    } catch (error) {
+      console.error("Error checking registration:", error);
+      res.status(500).json({ message: "Failed to check registration" });
+    }
+  });
+
+  app.post('/api/championship-registrations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check if already registered
+      const existing = await storage.getChampionshipRegistrationByUser(userId);
+      if (existing) {
+        return res.status(400).json({ message: "Already registered" });
+      }
+
+      const registration = await storage.createChampionshipRegistration({
+        userId,
+        status: "interested",
+      });
+      res.json(registration);
+    } catch (error) {
+      console.error("Error creating registration:", error);
+      res.status(500).json({ message: "Failed to create registration" });
+    }
+  });
+
+  app.delete('/api/championship-registrations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const deleted = await storage.deleteChampionshipRegistration(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Registration not found" });
+      }
+
+      res.json({ message: "Registration deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting registration:", error);
+      res.status(500).json({ message: "Failed to delete registration" });
+    }
+  });
+
   return httpServer;
 }

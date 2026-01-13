@@ -209,6 +209,22 @@ export const reportsRelations = relations(reports, ({ one }) => ({
   }),
 }));
 
+// Championship registrations table
+export const championshipRegistrations = pgTable("championship_registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: varchar("status").default("interested").notNull(),
+  notes: varchar("notes", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const championshipRegistrationsRelations = relations(championshipRegistrations, ({ one }) => ({
+  user: one(users, {
+    fields: [championshipRegistrations.userId],
+    references: [users.id],
+  }),
+}));
+
 // Schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -278,6 +294,11 @@ export const updateReportSchema = z.object({
   reviewedAt: z.date().optional(),
 });
 
+export const insertChampionshipRegistrationSchema = createInsertSchema(championshipRegistrations).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -291,3 +312,5 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type UpdateReport = z.infer<typeof updateReportSchema>;
+export type ChampionshipRegistration = typeof championshipRegistrations.$inferSelect;
+export type InsertChampionshipRegistration = z.infer<typeof insertChampionshipRegistrationSchema>;

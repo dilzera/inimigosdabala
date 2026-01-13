@@ -1,23 +1,44 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Calendar, Users, Target, Swords, Clock } from "lucide-react";
-import { useState } from "react";
+import { Trophy, Calendar, Users, Target, Swords, Clock, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Campeonato() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isRegistered, setIsRegistered] = useState(false);
+
+  const { data: registrationStatus, isLoading } = useQuery<{ registered: boolean }>({
+    queryKey: ["/api/championship-registrations/me"],
+    enabled: !!user,
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/championship-registrations"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/championship-registrations/me"] });
+      toast({
+        title: "Inscrição Recebida!",
+        description: "Você será notificado quando o campeonato for confirmado.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível fazer a inscrição. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleRegister = () => {
-    setIsRegistered(true);
-    toast({
-      title: "Inscrição Recebida!",
-      description: "Você será notificado quando o campeonato for confirmado.",
-    });
+    registerMutation.mutate();
   };
+
+  const isRegistered = registrationStatus?.registered;
 
   return (
     <div className="space-y-6">
@@ -94,14 +115,21 @@ export default function Campeonato() {
               Avisaremos quando tivermos mais detalhes!
             </p>
             
-            {!isRegistered ? (
+            {isLoading ? (
+              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+            ) : !isRegistered ? (
               <Button 
                 size="lg" 
                 onClick={handleRegister}
                 className="text-lg px-8"
+                disabled={registerMutation.isPending}
                 data-testid="button-register-championship"
               >
-                <Trophy className="h-5 w-5 mr-2" />
+                {registerMutation.isPending ? (
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                ) : (
+                  <Trophy className="h-5 w-5 mr-2" />
+                )}
                 Quero Participar!
               </Button>
             ) : (

@@ -5,6 +5,7 @@ import {
   matchStats,
   payments,
   reports,
+  championshipRegistrations,
   type User,
   type UpsertUser,
   type Match,
@@ -17,6 +18,8 @@ import {
   type Report,
   type InsertReport,
   type UpdateReport,
+  type ChampionshipRegistration,
+  type InsertChampionshipRegistration,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -61,6 +64,12 @@ export interface IStorage {
   
   // User merge operation
   mergeUsers(sourceId: string, targetId: string): Promise<User | undefined>;
+  
+  // Championship registration operations
+  getAllChampionshipRegistrations(): Promise<ChampionshipRegistration[]>;
+  getChampionshipRegistrationByUser(userId: string): Promise<ChampionshipRegistration | undefined>;
+  createChampionshipRegistration(registration: InsertChampionshipRegistration): Promise<ChampionshipRegistration>;
+  deleteChampionshipRegistration(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -525,6 +534,26 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updatedUser;
+  }
+
+  // Championship registration operations
+  async getAllChampionshipRegistrations(): Promise<ChampionshipRegistration[]> {
+    return await db.select().from(championshipRegistrations).orderBy(desc(championshipRegistrations.createdAt));
+  }
+
+  async getChampionshipRegistrationByUser(userId: string): Promise<ChampionshipRegistration | undefined> {
+    const [registration] = await db.select().from(championshipRegistrations).where(eq(championshipRegistrations.userId, userId));
+    return registration;
+  }
+
+  async createChampionshipRegistration(registration: InsertChampionshipRegistration): Promise<ChampionshipRegistration> {
+    const [newRegistration] = await db.insert(championshipRegistrations).values(registration).returning();
+    return newRegistration;
+  }
+
+  async deleteChampionshipRegistration(id: string): Promise<boolean> {
+    const result = await db.delete(championshipRegistrations).where(eq(championshipRegistrations.id, id)).returning();
+    return result.length > 0;
   }
 }
 

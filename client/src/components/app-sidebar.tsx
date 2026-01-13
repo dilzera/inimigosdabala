@@ -514,6 +514,18 @@ export function AppSidebar() {
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === "/admin/campeonato"}
+                            data-testid="nav-admin-campeonato"
+                          >
+                            <Link href="/admin/campeonato">
+                              <Trophy className="h-4 w-4" />
+                              <span>Campeonato</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
