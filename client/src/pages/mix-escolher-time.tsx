@@ -7,81 +7,40 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp, UserCheck, ArrowRight } from "lucide-react";
+import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp, UserCheck, ArrowRight, Crown, Map as MapIcon, X, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
 
-type PlayerWithLevel = User & { mixLevel: number };
+type PlayerWithLevel = User & { mixLevel: number; isCaptain?: boolean };
 
-function calculateRating(player: User): number {
+function getKdRating(player: User): number {
   const totalKills = player.totalKills || 0;
-  const totalDeaths = player.totalDeaths || 0;
-  const totalAssists = player.totalAssists || 0;
-  const headshots = player.totalHeadshots || 0;
-  const totalDamage = player.totalDamage || 0;
-  const wins = player.matchesWon || 0;
-  const losses = player.matchesLost || 0;
-  const roundsPlayed = Math.max(player.totalRoundsPlayed || 1, 1);
-  const totalMatches = Math.max(player.totalMatches || 1, 1);
-  const mvps = player.totalMvps || 0;
-  const aces = player.total5ks || 0;
-  const fourK = player.total4ks || 0;
-  const threeK = player.total3ks || 0;
-  const twoK = player.total2ks || 0;
-  const clutch1v1Wins = player.total1v1Wins || 0;
-  const clutch1v2Wins = player.total1v2Wins || 0;
-  const entryWins = player.totalEntryWins || 0;
-  const entryCount = Math.max(player.totalEntryCount || 1, 1);
-
-  const kd = totalDeaths > 0 ? totalKills / totalDeaths : (totalKills > 0 ? 1.5 : 0.5);
-  const adr = totalDamage / roundsPlayed;
-  const hsPercent = totalKills > 0 ? headshots / totalKills : 0;
-  const winRate = (wins + losses) > 0 ? wins / (wins + losses) : 0.5;
-  const kpr = totalKills / roundsPlayed;
-  const apr = totalAssists / roundsPlayed;
-  const entrySuccess = entryWins / entryCount;
-  const mvpPerMatch = mvps / totalMatches;
-
-  const multiKillPerRound = ((aces * 5) + (fourK * 3) + (threeK * 2) + (twoK * 1)) / roundsPlayed;
-  const clutchPerRound = ((clutch1v1Wins * 2) + (clutch1v2Wins * 4)) / roundsPlayed;
-
-  const normalizedKd = Math.min(kd / 2.0, 1.0);
-  const normalizedAdr = Math.min(adr / 100.0, 1.0);
-  const normalizedHsPercent = Math.min(hsPercent, 1.0);
-  const normalizedWinRate = Math.min(winRate, 1.0);
-  const normalizedKpr = Math.min(kpr / 0.8, 1.0);
-  const normalizedApr = Math.min(apr / 0.5, 1.0);
-  const normalizedEntry = Math.min(entrySuccess, 1.0);
-  const normalizedMvp = Math.min(mvpPerMatch / 2.0, 1.0);
-  const normalizedMultiKill = Math.min(multiKillPerRound * 5, 1.0);
-  const normalizedClutch = Math.min(clutchPerRound * 10, 1.0);
-
-  const rating = (
-    (normalizedKd * 0.20) +
-    (normalizedAdr * 0.20) +
-    (normalizedHsPercent * 0.08) +
-    (normalizedWinRate * 0.15) +
-    (normalizedKpr * 0.10) +
-    (normalizedApr * 0.05) +
-    (normalizedMultiKill * 0.08) +
-    (normalizedClutch * 0.06) +
-    (normalizedMvp * 0.04) +
-    (normalizedEntry * 0.04)
-  );
-
-  return Math.max(0.10, Math.min(2.00, rating));
+  const totalDeaths = player.totalDeaths || 1;
+  return totalDeaths > 0 ? totalKills / totalDeaths : totalKills > 0 ? 1.5 : 1.0;
 }
 
-const ratingsCache = new Map<string, number>();
+const kdCache: Map<string, number> = new Map();
 
-function getCachedRating(player: User): number {
-  const cached = ratingsCache.get(player.id);
+function getCachedKd(player: User): number {
+  const cached = kdCache.get(player.id);
   if (cached !== undefined) return cached;
   
-  const rating = calculateRating(player);
-  ratingsCache.set(player.id, rating);
-  return rating;
+  const kd = getKdRating(player);
+  kdCache.set(player.id, kd);
+  return kd;
 }
+
+const MAPS = [
+  { name: "Mirage", abbr: "MIR", color: "text-yellow-500", bg: "bg-yellow-500/20" },
+  { name: "Dust2", abbr: "D2", color: "text-orange-500", bg: "bg-orange-500/20" },
+  { name: "Inferno", abbr: "INF", color: "text-red-500", bg: "bg-red-500/20" },
+  { name: "Ancient", abbr: "ANC", color: "text-green-500", bg: "bg-green-500/20" },
+  { name: "Overpass", abbr: "OVP", color: "text-blue-500", bg: "bg-blue-500/20" },
+  { name: "Nuke", abbr: "NUK", color: "text-yellow-400", bg: "bg-yellow-400/20" },
+  { name: "Train", abbr: "TRN", color: "text-gray-400", bg: "bg-gray-400/20" },
+  { name: "Vertigo", abbr: "VRT", color: "text-sky-500", bg: "bg-sky-500/20" },
+  { name: "Anubis", abbr: "ANB", color: "text-amber-500", bg: "bg-amber-500/20" },
+];
 
 export default function MixEscolherTime() {
   const { user: currentUser } = useAuth();
@@ -89,13 +48,18 @@ export default function MixEscolherTime() {
     queryKey: ["/api/users"],
   });
 
-  const [step, setStep] = useState<"selection" | "balancing">("selection");
+  const [step, setStep] = useState<"selection" | "balancing" | "veto">("selection");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
   const [playerLevels, setPlayerLevels] = useState<Record<string, number>>({});
   const [team1, setTeam1] = useState<PlayerWithLevel[]>([]);
   const [team2, setTeam2] = useState<PlayerWithLevel[]>([]);
   const [available, setAvailable] = useState<PlayerWithLevel[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [captain1Id, setCaptain1Id] = useState<string | null>(null);
+  const [captain2Id, setCaptain2Id] = useState<string | null>(null);
+  const [bannedMaps, setBannedMaps] = useState<string[]>([]);
+  const [selectedMap, setSelectedMap] = useState<string | null>(null);
+  const [currentVetoTeam, setCurrentVetoTeam] = useState<1 | 2>(1);
 
   useEffect(() => {
     if (users.length > 0 && !initialized) {
@@ -107,6 +71,13 @@ export default function MixEscolherTime() {
       setInitialized(true);
     }
   }, [users, initialized]);
+
+  const getPlayerName = (player: User): string => {
+    if (player.nickname) return player.nickname;
+    if (player.firstName) return player.firstName;
+    if (player.email) return player.email;
+    return "Jogador";
+  };
 
   const getPlayerWithLevel = (player: User): PlayerWithLevel => ({
     ...player,
@@ -154,6 +125,8 @@ export default function MixEscolherTime() {
     setAvailable(selectedPlayers);
     setTeam1([]);
     setTeam2([]);
+    setCaptain1Id(null);
+    setCaptain2Id(null);
     setStep("balancing");
   };
 
@@ -162,6 +135,8 @@ export default function MixEscolherTime() {
     setTeam1([]);
     setTeam2([]);
     setAvailable([]);
+    setCaptain1Id(null);
+    setCaptain2Id(null);
   };
 
   const resetTeams = () => {
@@ -171,6 +146,8 @@ export default function MixEscolherTime() {
     setTeam1([]);
     setTeam2([]);
     setAvailable(selectedPlayers);
+    setCaptain1Id(null);
+    setCaptain2Id(null);
   };
 
   const balanceTeams = () => {
@@ -197,33 +174,39 @@ export default function MixEscolherTime() {
     setTeam1(newTeam1);
     setTeam2(newTeam2);
     setAvailable([]);
+    
+    if (newTeam1.length > 0) setCaptain1Id(newTeam1[0].id);
+    if (newTeam2.length > 0) setCaptain2Id(newTeam2[0].id);
   };
 
-  const balanceByRating = () => {
+  const balanceByKd = () => {
     const selectedPlayers = users
       .filter(u => selectedPlayerIds.has(u.id))
       .map(u => getPlayerWithLevel(u));
-    const sortedByRating = [...selectedPlayers].sort((a, b) => getCachedRating(b) - getCachedRating(a));
+    const sortedByKd = [...selectedPlayers].sort((a, b) => getCachedKd(b) - getCachedKd(a));
     
     const newTeam1: PlayerWithLevel[] = [];
     const newTeam2: PlayerWithLevel[] = [];
-    let team1Rating = 0;
-    let team2Rating = 0;
+    let team1Kd = 0;
+    let team2Kd = 0;
 
-    sortedByRating.forEach((player) => {
-      const playerRating = getCachedRating(player);
-      if (team1Rating <= team2Rating) {
+    sortedByKd.forEach((player) => {
+      const playerKd = getCachedKd(player);
+      if (team1Kd <= team2Kd) {
         newTeam1.push(player);
-        team1Rating += playerRating;
+        team1Kd += playerKd;
       } else {
         newTeam2.push(player);
-        team2Rating += playerRating;
+        team2Kd += playerKd;
       }
     });
 
     setTeam1(newTeam1);
     setTeam2(newTeam2);
     setAvailable([]);
+    
+    if (newTeam1.length > 0) setCaptain1Id(newTeam1[0].id);
+    if (newTeam2.length > 0) setCaptain2Id(newTeam2[0].id);
   };
 
   const moveToTeam = (player: PlayerWithLevel, targetTeam: "team1" | "team2") => {
@@ -239,9 +222,45 @@ export default function MixEscolherTime() {
   };
 
   const removeFromTeam = (player: PlayerWithLevel) => {
+    if (captain1Id === player.id) setCaptain1Id(null);
+    if (captain2Id === player.id) setCaptain2Id(null);
     setTeam1(team1.filter(p => p.id !== player.id));
     setTeam2(team2.filter(p => p.id !== player.id));
     setAvailable([...available, player]);
+  };
+
+  const setCaptain = (playerId: string, team: "team1" | "team2") => {
+    if (team === "team1") {
+      setCaptain1Id(playerId);
+    } else {
+      setCaptain2Id(playerId);
+    }
+  };
+
+  const proceedToVeto = () => {
+    setBannedMaps([]);
+    setSelectedMap(null);
+    setCurrentVetoTeam(1);
+    setStep("veto");
+  };
+
+  const banMap = (mapName: string) => {
+    const newBannedMaps = [...bannedMaps, mapName];
+    setBannedMaps(newBannedMaps);
+    
+    const remainingMaps = MAPS.filter(m => !newBannedMaps.includes(m.name));
+    
+    if (remainingMaps.length === 1) {
+      setSelectedMap(remainingMaps[0].name);
+    } else {
+      setCurrentVetoTeam(currentVetoTeam === 1 ? 2 : 1);
+    }
+  };
+
+  const backToBalancing = () => {
+    setStep("balancing");
+    setBannedMaps([]);
+    setSelectedMap(null);
   };
 
   const getTeamLevel = (team: PlayerWithLevel[]) => 
@@ -250,11 +269,11 @@ export default function MixEscolherTime() {
   const getTeamAvgLevel = (team: PlayerWithLevel[]) => 
     team.length > 0 ? (getTeamLevel(team) / team.length).toFixed(1) : "0";
 
-  const getTeamRating = (team: PlayerWithLevel[]) =>
-    team.reduce((sum, p) => sum + getCachedRating(p), 0);
+  const getTeamKd = (team: PlayerWithLevel[]) =>
+    team.reduce((sum, p) => sum + getCachedKd(p), 0);
 
-  const getTeamAvgRating = (team: PlayerWithLevel[]) =>
-    team.length > 0 ? (getTeamRating(team) / team.length).toFixed(2) : "0.00";
+  const getTeamAvgKd = (team: PlayerWithLevel[]) =>
+    team.length > 0 ? (getTeamKd(team) / team.length).toFixed(2) : "0.00";
 
   const getLevelColor = (level: number) => {
     if (level <= 3) return "text-red-500";
@@ -270,17 +289,17 @@ export default function MixEscolherTime() {
     return "default";
   };
 
-  const getRatingColor = (rating: number) => {
-    if (rating < 0.7) return "text-red-500";
-    if (rating < 1.0) return "text-yellow-500";
-    if (rating < 1.3) return "text-blue-500";
+  const getKdColor = (kd: number) => {
+    if (kd < 0.8) return "text-red-500";
+    if (kd < 1.0) return "text-yellow-500";
+    if (kd < 1.3) return "text-blue-500";
     return "text-green-500";
   };
 
   const SelectionPlayerCard = ({ player }: { player: User }) => {
     const isSelected = selectedPlayerIds.has(player.id);
-    const rating = getCachedRating(player);
-    const playerName = player.nickname || player.firstName || "Jogador";
+    const kd = getCachedKd(player);
+    const playerName = getPlayerName(player);
     const level = playerLevels[player.id] || 5;
     const isAdmin = currentUser?.isAdmin;
     
@@ -304,7 +323,7 @@ export default function MixEscolherTime() {
           <Avatar className="h-10 w-10 shrink-0">
             <AvatarImage src={player.profileImageUrl || undefined} />
             <AvatarFallback className="bg-primary/10 text-primary">
-              {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
+              {playerName.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
@@ -323,9 +342,9 @@ export default function MixEscolherTime() {
                 <Star className="h-3 w-3 mr-1" />
                 Nv {level}
               </Badge>
-              <Badge variant="outline" className={`font-mono text-xs ${getRatingColor(rating)}`}>
+              <Badge variant="outline" className={`font-mono text-xs ${getKdColor(kd)}`}>
                 <TrendingUp className="h-3 w-3 mr-1" />
-                {rating.toFixed(2)}
+                K/D {kd.toFixed(2)}
               </Badge>
             </div>
           </div>
@@ -362,24 +381,32 @@ export default function MixEscolherTime() {
     team?: "team1" | "team2";
   }) => {
     const isAdmin = currentUser?.isAdmin;
-    const rating = getCachedRating(player);
-    const playerName = player.nickname || player.firstName || "Jogador";
+    const kd = getCachedKd(player);
+    const playerName = getPlayerName(player);
+    const isCaptain = (team === "team1" && captain1Id === player.id) || 
+                      (team === "team2" && captain2Id === player.id);
     
     return (
-      <div className="p-3 bg-background/50 rounded-lg border space-y-3">
+      <div className={`p-3 bg-background/50 rounded-lg border space-y-3 ${isCaptain ? "border-yellow-500 bg-yellow-500/5" : ""}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Avatar className="h-10 w-10 shrink-0">
-              <AvatarImage src={player.profileImageUrl || undefined} />
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="h-10 w-10 shrink-0">
+                <AvatarImage src={player.profileImageUrl || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {playerName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {isCaptain && (
+                <Crown className="absolute -top-2 -right-2 h-5 w-5 text-yellow-500 fill-yellow-500" />
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="font-medium truncate max-w-[120px] sm:max-w-[180px]" data-testid={`text-player-name-${player.id}`}>
                     {playerName}
+                    {isCaptain && <span className="text-yellow-500 ml-1">(C)</span>}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -393,21 +420,37 @@ export default function MixEscolherTime() {
                 </Badge>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge variant="outline" className={`font-mono text-xs ${getRatingColor(rating)}`} data-testid={`badge-rating-${player.id}`}>
+                    <Badge variant="outline" className={`font-mono text-xs ${getKdColor(kd)}`} data-testid={`badge-kd-${player.id}`}>
                       <TrendingUp className="h-3 w-3 mr-1" />
-                      {rating.toFixed(2)}
+                      K/D {kd.toFixed(2)}
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Rating baseado nas estatísticas</p>
-                    <p className="text-xs text-muted-foreground">K/D, ADR, HS%, Win Rate</p>
+                    <p>K/D Ratio</p>
+                    <p className="text-xs text-muted-foreground">{player.totalKills} kills / {player.totalDeaths} deaths</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
             </div>
           </div>
           {showActions && (
-            <div className="flex gap-1 shrink-0">
+            <div className="flex gap-1 shrink-0 flex-wrap">
+              {team && !isCaptain && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={() => setCaptain(player.id, team)}
+                      className="h-8 w-8"
+                      data-testid={`button-captain-${player.id}`}
+                    >
+                      <Crown className="h-4 w-4 text-yellow-500" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Definir como Capitão</TooltipContent>
+                </Tooltip>
+              )}
               {team !== "team1" && (
                 <Button 
                   size="sm" 
@@ -470,6 +513,173 @@ export default function MixEscolherTime() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
+
+  if (step === "veto") {
+    const captain1 = team1.find(p => p.id === captain1Id);
+    const captain2 = team2.find(p => p.id === captain2Id);
+    const remainingMaps = MAPS.filter(m => !bannedMaps.includes(m.name));
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <MapIcon className="h-8 w-8 text-primary" />
+              Veto de Mapas
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {selectedMap 
+                ? "Mapa selecionado!" 
+                : `Vez do ${currentVetoTeam === 1 ? "Time 1 (CT)" : "Time 2 (TR)"} banir um mapa`
+              }
+            </p>
+          </div>
+          <Button variant="outline" onClick={backToBalancing} data-testid="button-back-to-balancing">
+            <ArrowRight className="h-4 w-4 mr-2 rotate-180" />
+            Voltar aos Times
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="border-blue-500/50">
+            <CardHeader className="bg-blue-500/10 pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Trophy className="h-5 w-5 text-blue-500" />
+                Time 1 (CT)
+                {captain1 && (
+                  <Badge variant="outline" className="ml-auto">
+                    <Crown className="h-3 w-3 mr-1 text-yellow-500" />
+                    {getPlayerName(captain1)}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3">
+              <div className="flex flex-wrap gap-2">
+                {team1.map(p => (
+                  <Badge key={p.id} variant="secondary">
+                    {p.id === captain1Id && <Crown className="h-3 w-3 mr-1 text-yellow-500" />}
+                    {getPlayerName(p)}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-orange-500/50">
+            <CardHeader className="bg-orange-500/10 pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Target className="h-5 w-5 text-orange-500" />
+                Time 2 (TR)
+                {captain2 && (
+                  <Badge variant="outline" className="ml-auto">
+                    <Crown className="h-3 w-3 mr-1 text-yellow-500" />
+                    {getPlayerName(captain2)}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3">
+              <div className="flex flex-wrap gap-2">
+                {team2.map(p => (
+                  <Badge key={p.id} variant="secondary">
+                    {p.id === captain2Id && <Crown className="h-3 w-3 mr-1 text-yellow-500" />}
+                    {getPlayerName(p)}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {selectedMap ? (
+          <Card className="border-green-500/50 bg-green-500/5">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <div className={`h-20 w-20 mx-auto rounded-xl flex items-center justify-center ${MAPS.find(m => m.name === selectedMap)?.bg}`}>
+                  <span className={`text-3xl font-bold ${MAPS.find(m => m.name === selectedMap)?.color}`}>
+                    {MAPS.find(m => m.name === selectedMap)?.abbr}
+                  </span>
+                </div>
+                <h2 className="text-3xl font-bold text-green-500">{selectedMap}</h2>
+                <p className="text-muted-foreground">
+                  Mapa selecionado para a partida!
+                </p>
+                <Badge variant="default" className="text-lg px-4 py-2">
+                  <Check className="h-5 w-5 mr-2" />
+                  Mapa Definido
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapIcon className="h-5 w-5" />
+                Mapas Disponíveis
+              </CardTitle>
+              <CardDescription>
+                {currentVetoTeam === 1 ? (
+                  <span className="text-blue-500 font-medium">Time 1 (CT)</span>
+                ) : (
+                  <span className="text-orange-500 font-medium">Time 2 (TR)</span>
+                )}
+                {" "}deve banir um mapa. Restam {remainingMaps.length} mapas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                {MAPS.map((map) => {
+                  const isBanned = bannedMaps.includes(map.name);
+                  return (
+                    <Button
+                      key={map.name}
+                      variant={isBanned ? "ghost" : "outline"}
+                      disabled={isBanned}
+                      onClick={() => banMap(map.name)}
+                      className={`h-auto py-4 flex-col gap-2 ${
+                        isBanned ? "opacity-30 line-through" : "hover-elevate"
+                      }`}
+                      data-testid={`button-ban-${map.name.toLowerCase()}`}
+                    >
+                      <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${map.bg}`}>
+                        <span className={`text-lg font-bold ${map.color}`}>{map.abbr}</span>
+                      </div>
+                      <span className="font-medium">{map.name}</span>
+                      {isBanned && (
+                        <Badge variant="destructive" className="text-xs">
+                          <X className="h-3 w-3 mr-1" />
+                          Banido
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {bannedMaps.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Mapas Banidos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {bannedMaps.map((mapName, index) => (
+                  <Badge key={mapName} variant="destructive">
+                    {index + 1}. {mapName}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }
@@ -595,9 +805,9 @@ export default function MixEscolherTime() {
             <Shuffle className="h-4 w-4 mr-2" />
             Por Nível
           </Button>
-          <Button onClick={balanceByRating} data-testid="button-balance-rating">
+          <Button onClick={balanceByKd} data-testid="button-balance-kd">
             <TrendingUp className="h-4 w-4 mr-2" />
-            Por Rating
+            Por K/D
           </Button>
         </div>
       </div>
@@ -609,7 +819,7 @@ export default function MixEscolherTime() {
               <Star className="h-4 w-4 text-primary shrink-0" />
               <span>
                 Como admin, você pode ajustar o nível de habilidade (1-10) de cada jogador. 
-                Use "Por Nível" para balancear pelo nível manual ou "Por Rating" para usar as estatísticas.
+                Use "Por Nível" para balancear pelo nível manual ou "Por K/D" para usar o K/D ratio.
               </span>
             </div>
           </CardContent>
@@ -648,7 +858,7 @@ export default function MixEscolherTime() {
             </CardTitle>
             <CardDescription className="flex gap-4 flex-wrap">
               <span>Nível: {getTeamLevel(team1)}</span>
-              <span className="text-blue-500">Rating: {getTeamAvgRating(team1)}</span>
+              <span className="text-blue-500">K/D Médio: {getTeamAvgKd(team1)}</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 pt-4">
@@ -674,7 +884,7 @@ export default function MixEscolherTime() {
             </CardTitle>
             <CardDescription className="flex gap-4 flex-wrap">
               <span>Nível: {getTeamLevel(team2)}</span>
-              <span className="text-orange-500">Rating: {getTeamAvgRating(team2)}</span>
+              <span className="text-orange-500">K/D Médio: {getTeamAvgKd(team2)}</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 pt-4">
@@ -699,8 +909,14 @@ export default function MixEscolherTime() {
                 <div className="text-sm text-muted-foreground">Nível Time 1</div>
                 <div className="text-xs text-muted-foreground">Média: {getTeamAvgLevel(team1)}</div>
                 <div className="text-xs text-blue-500 mt-1">
-                  Rating Médio: {getTeamAvgRating(team1)}
+                  K/D Médio: {getTeamAvgKd(team1)}
                 </div>
+                {captain1Id && (
+                  <Badge variant="outline" className="mt-2">
+                    <Crown className="h-3 w-3 mr-1 text-yellow-500" />
+                    {getPlayerName(team1.find(p => p.id === captain1Id)!)}
+                  </Badge>
+                )}
               </div>
               <div className="text-4xl font-bold text-muted-foreground">VS</div>
               <div>
@@ -708,18 +924,32 @@ export default function MixEscolherTime() {
                 <div className="text-sm text-muted-foreground">Nível Time 2</div>
                 <div className="text-xs text-muted-foreground">Média: {getTeamAvgLevel(team2)}</div>
                 <div className="text-xs text-orange-500 mt-1">
-                  Rating Médio: {getTeamAvgRating(team2)}
+                  K/D Médio: {getTeamAvgKd(team2)}
                 </div>
+                {captain2Id && (
+                  <Badge variant="outline" className="mt-2">
+                    <Crown className="h-3 w-3 mr-1 text-yellow-500" />
+                    {getPlayerName(team2.find(p => p.id === captain2Id)!)}
+                  </Badge>
+                )}
               </div>
             </div>
             <div className="text-center mt-4 flex justify-center gap-2 flex-wrap">
               <Badge variant={Math.abs(getTeamLevel(team1) - getTeamLevel(team2)) <= 2 ? "default" : "destructive"}>
                 Dif. Nível: {Math.abs(getTeamLevel(team1) - getTeamLevel(team2))} pts
               </Badge>
-              <Badge variant={Math.abs(getTeamRating(team1) - getTeamRating(team2)) <= 0.5 ? "default" : "destructive"}>
-                Dif. Rating: {Math.abs(getTeamRating(team1) - getTeamRating(team2)).toFixed(2)}
+              <Badge variant={Math.abs(getTeamKd(team1) - getTeamKd(team2)) <= 0.5 ? "default" : "destructive"}>
+                Dif. K/D: {Math.abs(getTeamKd(team1) - getTeamKd(team2)).toFixed(2)}
               </Badge>
             </div>
+            {team1.length >= 1 && team2.length >= 1 && (
+              <div className="text-center mt-4">
+                <Button onClick={proceedToVeto} data-testid="button-proceed-veto">
+                  <MapIcon className="h-4 w-4 mr-2" />
+                  Ir para Veto de Mapas
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

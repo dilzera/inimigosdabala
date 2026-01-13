@@ -31,6 +31,9 @@ import PerfilJogador from "@/pages/perfil-jogador";
 import CompararJogadores from "@/pages/comparar-jogadores";
 import MapasMaisJogados from "@/pages/mapas-mais-jogados";
 import Jogadores from "@/pages/jogadores";
+import Campeonato from "@/pages/campeonato";
+import { ServerCostPopup } from "@/components/server-cost-popup";
+import { AcePopup } from "@/components/ace-popup";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
@@ -73,6 +76,7 @@ function Router() {
       <Route path="/servidor/skins" component={ServidorSkins} />
       <Route path="/servidor/steamid" component={ServidorSteamId} />
       <Route path="/patrocinadores" component={Patrocinadores} />
+      <Route path="/campeonato" component={Campeonato} />
       <Route path="/denuncias" component={Denuncias} />
       <Route path="/partidas/minhas" component={PartidasMinhas} />
       <Route path="/partidas/todas" component={PartidasTodas} />
@@ -130,6 +134,8 @@ function AppContent() {
   return (
     <AuthenticatedLayout>
       <Router />
+      <ServerCostPopup />
+      <AcePopup />
     </AuthenticatedLayout>
   );
 }

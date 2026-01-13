@@ -316,6 +316,19 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
+                  isActive={location === "/campeonato"}
+                  data-testid="nav-campeonato"
+                >
+                  <Link href="/campeonato">
+                    <Trophy className="h-4 w-4" />
+                    <span>Campeonato</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
                   isActive={location === "/patrocinadores"}
                   data-testid="nav-patrocinadores"
                 >
