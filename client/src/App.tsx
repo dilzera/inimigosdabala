@@ -35,6 +35,7 @@ import Campeonato from "@/pages/campeonato";
 import AdminCampeonato from "@/pages/admin-campeonato";
 import { ServerCostPopup } from "@/components/server-cost-popup";
 import { AcePopup } from "@/components/ace-popup";
+import { ChampionshipPopup } from "@/components/championship-popup";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
@@ -138,6 +139,7 @@ function AppContent() {
       <Router />
       <ServerCostPopup />
       <AcePopup />
+      <ChampionshipPopup />
     </AuthenticatedLayout>
   );
 }
