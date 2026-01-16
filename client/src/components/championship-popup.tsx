@@ -16,21 +16,12 @@ export function ChampionshipPopup() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    const hasSeenPopup = localStorage.getItem("championshipPopupSeen");
-    const lastSeen = localStorage.getItem("championshipPopupLastSeen");
-    const now = Date.now();
-    const oneWeek = 7 * 24 * 60 * 60 * 1000;
-    
-    if (!hasSeenPopup || (lastSeen && now - parseInt(lastSeen) > oneWeek)) {
-      const timer = setTimeout(() => setOpen(true), 3000);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => setOpen(true), 3000);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
     setOpen(false);
-    localStorage.setItem("championshipPopupSeen", "true");
-    localStorage.setItem("championshipPopupLastSeen", Date.now().toString());
   };
 
   const handleGoToRegistration = () => {

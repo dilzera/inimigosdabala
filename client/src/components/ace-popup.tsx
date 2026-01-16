@@ -29,28 +29,16 @@ export function AcePopup() {
   useEffect(() => {
     if (!latestAcePlayer) return;
     
-    const lastSeenAce = localStorage.getItem("lastSeenAcePlayer");
-    const lastSeenCount = localStorage.getItem("lastSeenAceCount");
-    
-    if (
-      lastSeenAce !== latestAcePlayer.id || 
-      lastSeenCount !== String(latestAcePlayer.total5ks)
-    ) {
-      const timer = setTimeout(() => {
-        setOpen(true);
-        setShowConfetti(true);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => {
+      setOpen(true);
+      setShowConfetti(true);
+    }, 4500);
+    return () => clearTimeout(timer);
   }, [latestAcePlayer]);
 
   const handleClose = () => {
     setOpen(false);
     setShowConfetti(false);
-    if (latestAcePlayer) {
-      localStorage.setItem("lastSeenAcePlayer", latestAcePlayer.id);
-      localStorage.setItem("lastSeenAceCount", String(latestAcePlayer.total5ks));
-    }
   };
 
   if (!latestAcePlayer) return null;

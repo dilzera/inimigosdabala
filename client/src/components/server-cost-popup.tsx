@@ -18,21 +18,12 @@ export function ServerCostPopup() {
   const pixKey = "12982690148";
 
   useEffect(() => {
-    const hasSeenPopup = localStorage.getItem("serverCostPopupSeen");
-    const lastSeen = localStorage.getItem("serverCostPopupLastSeen");
-    const now = Date.now();
-    const oneWeek = 7 * 24 * 60 * 60 * 1000;
-    
-    if (!hasSeenPopup || (lastSeen && now - parseInt(lastSeen) > oneWeek)) {
-      const timer = setTimeout(() => setOpen(true), 1500);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => setOpen(true), 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
     setOpen(false);
-    localStorage.setItem("serverCostPopupSeen", "true");
-    localStorage.setItem("serverCostPopupLastSeen", Date.now().toString());
   };
 
   const copyPixKey = async () => {
@@ -67,6 +58,12 @@ export function ServerCostPopup() {
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          <div className="text-center p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-sm font-medium text-primary">
+              Qualquer valor ajuda! Pode ser R$ 1, R$ 5, R$ 10... o que você puder contribuir faz diferença para manter nossa comunidade ativa!
+            </p>
+          </div>
+          
           <p className="text-sm text-muted-foreground">
             Manter nossa comunidade online tem custos mensais. Se você curte jogar conosco, 
             considere ajudar com qualquer valor. Cada contribuição faz diferença!
@@ -123,8 +120,14 @@ export function ServerCostPopup() {
             </div>
           </div>
           
+          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+            <p className="text-sm text-center font-medium text-green-600 dark:text-green-400">
+              Não existe valor mínimo! R$ 1, R$ 2, R$ 5... toda ajuda conta!
+            </p>
+          </div>
+          
           <p className="text-xs text-center text-muted-foreground">
-            Qualquer valor é bem-vindo! Obrigado por fazer parte da família Inimigos da Bala.
+            Obrigado por fazer parte da família Inimigos da Bala.
           </p>
         </div>
         
