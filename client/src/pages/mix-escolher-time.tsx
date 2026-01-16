@@ -35,12 +35,14 @@ const MAPS = [
   { name: "Mirage", abbr: "MIR", color: "text-yellow-500", bg: "bg-yellow-500/20" },
   { name: "Dust2", abbr: "D2", color: "text-orange-500", bg: "bg-orange-500/20" },
   { name: "Inferno", abbr: "INF", color: "text-red-500", bg: "bg-red-500/20" },
-  { name: "Ancient", abbr: "ANC", color: "text-green-500", bg: "bg-green-500/20" },
-  { name: "Overpass", abbr: "OVP", color: "text-blue-500", bg: "bg-blue-500/20" },
-  { name: "Nuke", abbr: "NUK", color: "text-yellow-400", bg: "bg-yellow-400/20" },
-  { name: "Train", abbr: "TRN", color: "text-gray-400", bg: "bg-gray-400/20" },
-  { name: "Vertigo", abbr: "VRT", color: "text-sky-500", bg: "bg-sky-500/20" },
   { name: "Anubis", abbr: "ANB", color: "text-amber-500", bg: "bg-amber-500/20" },
+  { name: "Nuke", abbr: "NUK", color: "text-yellow-400", bg: "bg-yellow-400/20" },
+  { name: "Overpass", abbr: "OVP", color: "text-blue-500", bg: "bg-blue-500/20" },
+  { name: "Vertigo", abbr: "VRT", color: "text-sky-500", bg: "bg-sky-500/20" },
+  { name: "Ancient", abbr: "ANC", color: "text-green-500", bg: "bg-green-500/20" },
+  { name: "Train", abbr: "TRN", color: "text-gray-400", bg: "bg-gray-400/20" },
+  { name: "Cobble", abbr: "CBL", color: "text-stone-500", bg: "bg-stone-500/20" },
+  { name: "Cache", abbr: "CCH", color: "text-emerald-500", bg: "bg-emerald-500/20" },
 ];
 
 export default function MixEscolherTime() {
