@@ -7,7 +7,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp, UserCheck, ArrowRight, Crown, Map as MapIcon, X, Check } from "lucide-react";
+import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp, UserCheck, ArrowRight, Crown, Map as MapIcon, X, Check, ArrowUpDown, SortAsc } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
 
@@ -60,6 +61,7 @@ export default function MixEscolherTime() {
   const [bannedMaps, setBannedMaps] = useState<string[]>([]);
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [currentVetoTeam, setCurrentVetoTeam] = useState<1 | 2>(1);
+  const [sortOrder, setSortOrder] = useState<"alphabetical" | "kd">("kd");
 
   useEffect(() => {
     if (users.length > 0 && !initialized) {
@@ -294,6 +296,19 @@ export default function MixEscolherTime() {
     if (kd < 1.0) return "text-yellow-500";
     if (kd < 1.3) return "text-blue-500";
     return "text-green-500";
+  };
+
+  const getSortedUsers = () => {
+    const usersCopy = [...users];
+    if (sortOrder === "kd") {
+      return usersCopy.sort((a, b) => getCachedKd(b) - getCachedKd(a));
+    } else {
+      return usersCopy.sort((a, b) => {
+        const nameA = getPlayerName(a).toLowerCase();
+        const nameB = getPlayerName(b).toLowerCase();
+        return nameA.localeCompare(nameB, 'pt-BR');
+      });
+    }
   };
 
   const SelectionPlayerCard = ({ player }: { player: User }) => {
@@ -722,9 +737,21 @@ export default function MixEscolherTime() {
                 <Users className="h-5 w-5" />
                 Jogadores Cadastrados
               </span>
-              <Badge variant={selectedPlayerIds.size === 10 ? "default" : "secondary"}>
-                {selectedPlayerIds.size} selecionados
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "alphabetical" | "kd")}>
+                  <SelectTrigger className="w-[160px]" data-testid="select-sort-order">
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Ordenar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kd">Ordenar por K/D</SelectItem>
+                    <SelectItem value="alphabetical">Ordem Alfabética</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Badge variant={selectedPlayerIds.size === 10 ? "default" : "secondary"}>
+                  {selectedPlayerIds.size} selecionados
+                </Badge>
+              </div>
             </CardTitle>
             <CardDescription>
               Clique para selecionar/desmarcar jogadores. {currentUser?.isAdmin && "Como admin, você pode ajustar o nível dos jogadores selecionados."}
@@ -732,7 +759,7 @@ export default function MixEscolherTime() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {users.map((player) => (
+              {getSortedUsers().map((player) => (
                 <SelectionPlayerCard key={player.id} player={player} />
               ))}
             </div>
