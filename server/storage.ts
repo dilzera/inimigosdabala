@@ -6,6 +6,7 @@ import {
   payments,
   reports,
   championshipRegistrations,
+  weeklyRankings,
   type User,
   type UpsertUser,
   type Match,
@@ -20,6 +21,8 @@ import {
   type UpdateReport,
   type ChampionshipRegistration,
   type InsertChampionshipRegistration,
+  type WeeklyRanking,
+  type InsertWeeklyRanking,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -70,6 +73,12 @@ export interface IStorage {
   getChampionshipRegistrationByUser(userId: string): Promise<ChampionshipRegistration | undefined>;
   createChampionshipRegistration(registration: InsertChampionshipRegistration): Promise<ChampionshipRegistration>;
   deleteChampionshipRegistration(id: string): Promise<boolean>;
+  
+  // Weekly ranking operations
+  getAllWeeklyRankings(): Promise<WeeklyRanking[]>;
+  getWeeklyRanking(id: string): Promise<WeeklyRanking | undefined>;
+  createWeeklyRanking(ranking: InsertWeeklyRanking): Promise<WeeklyRanking>;
+  deleteWeeklyRanking(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -553,6 +562,26 @@ export class DatabaseStorage implements IStorage {
 
   async deleteChampionshipRegistration(id: string): Promise<boolean> {
     const result = await db.delete(championshipRegistrations).where(eq(championshipRegistrations.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Weekly ranking operations
+  async getAllWeeklyRankings(): Promise<WeeklyRanking[]> {
+    return await db.select().from(weeklyRankings).orderBy(desc(weeklyRankings.weekStart));
+  }
+
+  async getWeeklyRanking(id: string): Promise<WeeklyRanking | undefined> {
+    const [ranking] = await db.select().from(weeklyRankings).where(eq(weeklyRankings.id, id));
+    return ranking;
+  }
+
+  async createWeeklyRanking(ranking: InsertWeeklyRanking): Promise<WeeklyRanking> {
+    const [newRanking] = await db.insert(weeklyRankings).values(ranking).returning();
+    return newRanking;
+  }
+
+  async deleteWeeklyRanking(id: string): Promise<boolean> {
+    const result = await db.delete(weeklyRankings).where(eq(weeklyRankings.id, id)).returning();
     return result.length > 0;
   }
 }

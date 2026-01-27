@@ -582,6 +582,18 @@ export function AppSidebar() {
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === "/admin/historico-rankings"}
+                            data-testid="nav-admin-historico-rankings"
+                          >
+                            <Link href="/admin/historico-rankings">
+                              <History className="h-4 w-4" />
+                              <span>Histórico Rankings</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>

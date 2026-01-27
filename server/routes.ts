@@ -913,5 +913,96 @@ export async function registerRoutes(
     }
   });
 
+  // Weekly Rankings endpoints (Admin only)
+  app.get('/api/weekly-rankings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const rankings = await storage.getAllWeeklyRankings();
+      res.json(rankings);
+    } catch (error) {
+      console.error("Error fetching weekly rankings:", error);
+      res.status(500).json({ message: "Failed to fetch weekly rankings" });
+    }
+  });
+
+  app.get('/api/weekly-rankings/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const ranking = await storage.getWeeklyRanking(req.params.id);
+      
+      if (!ranking) {
+        return res.status(404).json({ message: "Ranking not found" });
+      }
+
+      res.json(ranking);
+    } catch (error) {
+      console.error("Error fetching weekly ranking:", error);
+      res.status(500).json({ message: "Failed to fetch weekly ranking" });
+    }
+  });
+
+  app.post('/api/weekly-rankings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const { weekStart, weekEnd, rankings } = req.body;
+
+      if (!weekStart || !weekEnd || !rankings) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const newRanking = await storage.createWeeklyRanking({
+        weekStart: new Date(weekStart),
+        weekEnd: new Date(weekEnd),
+        rankings,
+        createdBy: userId,
+      });
+
+      res.json(newRanking);
+    } catch (error) {
+      console.error("Error creating weekly ranking:", error);
+      res.status(500).json({ message: "Failed to create weekly ranking" });
+    }
+  });
+
+  app.delete('/api/weekly-rankings/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const deleted = await storage.deleteWeeklyRanking(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Ranking not found" });
+      }
+
+      res.json({ message: "Ranking deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting weekly ranking:", error);
+      res.status(500).json({ message: "Failed to delete weekly ranking" });
+    }
+  });
+
   return httpServer;
 }

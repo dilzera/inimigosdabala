@@ -35,6 +35,7 @@ import Campeonato from "@/pages/campeonato";
 import AdminCampeonato from "@/pages/admin-campeonato";
 import RankingMensal from "@/pages/ranking-mensal";
 import MixVetoMapas from "@/pages/mix-veto-mapas";
+import AdminHistoricoRankings from "@/pages/admin-historico-rankings";
 import { ServerCostPopup } from "@/components/server-cost-popup";
 import { AcePopup } from "@/components/ace-popup";
 import { ChampionshipPopup } from "@/components/championship-popup";
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/admin/financeiro" component={AdminFinanceiro} />
       <Route path="/admin/denuncias" component={AdminDenuncias} />
       <Route path="/admin/campeonato" component={AdminCampeonato} />
+      <Route path="/admin/historico-rankings" component={AdminHistoricoRankings} />
       <Route component={NotFound} />
     </Switch>
   );
