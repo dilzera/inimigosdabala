@@ -154,6 +154,13 @@ The application uses the following main tables:
 - Automatic player creation from Steam data if SteamID64 not found in system
 - Aggregated user statistics are recalculated after each import
 - Duplicate match detection based on external match ID
+- **Automatic MVP Calculation**: When importing a match, the system analyzes player performance and assigns MVP to the best performer based on:
+  - Kills (2 pts each), Assists (0.5 pts), K/D ratio (5 pts per ratio)
+  - Headshot percentage (up to 10 pts), Damage (0.01 pts per damage)
+  - Multi-kills: ACE (15 pts), 4K (10 pts), 3K (5 pts), 2K (2 pts)
+  - Clutches: 1v1 wins (8 pts), 1v2 wins (12 pts)
+  - Entry frags (3 pts each), Utility damage (0.02 pts per damage)
+  - Enemies flashed (0.5 pts each)
 
 ### Build & Deployment Strategy
 

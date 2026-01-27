@@ -407,6 +407,43 @@ export async function registerRoutes(
         date: new Date(),
       });
 
+      // Calculate MVP - find the best performing player based on statistics
+      // MVP score formula considers: kills, K/D, headshots, damage, multi-kills, clutches, entry frags
+      const calculateMVPScore = (row: any): number => {
+        const kd = row.deaths > 0 ? row.kills / row.deaths : row.kills;
+        const hsPercent = row.kills > 0 ? (row.head_shot_kills / row.kills) : 0;
+        
+        let score = 0;
+        score += row.kills * 2;                    // 2 points per kill
+        score += row.assists * 0.5;                // 0.5 points per assist
+        score += kd * 5;                           // 5 points per K/D ratio
+        score += hsPercent * 10;                   // Up to 10 points for HS%
+        score += row.damage * 0.01;                // 0.01 points per damage
+        score += row.enemy5ks * 15;                // 15 points per ACE
+        score += row.enemy4ks * 10;                // 10 points per 4K
+        score += row.enemy3ks * 5;                 // 5 points per 3K
+        score += row.enemy2ks * 2;                 // 2 points per 2K
+        score += row.v1_wins * 8;                  // 8 points per 1v1 clutch win
+        score += row.v2_wins * 12;                 // 12 points per 1v2 clutch win
+        score += row.entry_wins * 3;               // 3 points per entry frag win
+        score += row.utility_damage * 0.02;        // 0.02 points per utility damage
+        score += row.enemies_flashed * 0.5;        // 0.5 points per enemy flashed
+        
+        return score;
+      };
+
+      // Find the MVP (player with highest score)
+      let mvpSteamId: string | null = null;
+      let highestScore = -1;
+      
+      for (const row of rows) {
+        const score = calculateMVPScore(row);
+        if (score > highestScore) {
+          highestScore = score;
+          mvpSteamId = row.steamid64;
+        }
+      }
+
       // Process each player
       const usersToRecalculate: string[] = [];
 
@@ -420,6 +457,9 @@ export async function registerRoutes(
         }
 
         usersToRecalculate.push(user.id);
+
+        // Assign MVP = 1 to the best player, 0 to others
+        const isMVP = row.steamid64 === mvpSteamId ? 1 : 0;
 
         // Create match stats
         await storage.createMatchStats({
@@ -459,7 +499,7 @@ export async function registerRoutes(
           killReward: row.kill_reward,
           cashEarned: row.cash_earned,
           liveTime: row.live_time,
-          mvps: 0,
+          mvps: isMVP,
           score: row.damage,
         });
       }
