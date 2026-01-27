@@ -40,6 +40,7 @@ export default function Rankings() {
     const winRateB = (b.matchesWon / b.totalMatches) * 100;
     return winRateB - winRateA;
   });
+  const sortedByMvps = [...playersWithMatches].sort((a, b) => b.totalMvps - a.totalMvps);
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -150,9 +151,14 @@ export default function Rankings() {
                       <td className="py-2">50% é neutro, vitórias dão bônus</td>
                     </tr>
                     <tr className="border-b border-border/50">
+                      <td className="py-2 font-medium text-foreground">MVP Rate</td>
+                      <td className="py-2 font-mono text-xs">(MVP% - 10) × 5</td>
+                      <td className="py-2">% de partidas como MVP (10% é média)</td>
+                    </tr>
+                    <tr className="border-b border-border/50">
                       <td className="py-2 font-medium text-foreground">MVPs</td>
-                      <td className="py-2 font-mono text-xs">MVPs × 2</td>
-                      <td className="py-2">Cada MVP dá +2 pontos</td>
+                      <td className="py-2 font-mono text-xs">MVPs × 3</td>
+                      <td className="py-2">Cada MVP dá +3 pontos</td>
                     </tr>
                     <tr className="border-b border-border/50">
                       <td className="py-2 font-medium text-foreground">ACE (5K)</td>
@@ -287,6 +293,55 @@ export default function Rankings() {
                 />
               );
             })}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-amber-500" />
+              Ranking por MVPs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2">
+              {sortedByMvps.slice(0, 10).map((player, index) => {
+                const mvpRate = player.totalMatches > 0
+                  ? ((player.totalMvps / player.totalMatches) * 100).toFixed(1)
+                  : "0.0";
+                return (
+                  <div 
+                    key={player.id}
+                    className={`flex items-center justify-between p-4 rounded-lg ${index < 3 ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-background/50'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-center w-8">
+                        {getRankIcon(index)}
+                      </div>
+                      <Link href={`/jogador/${player.id}`} className="flex items-center gap-4 hover:opacity-80 transition-opacity" data-testid={`link-mvp-player-${player.id}`}>
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={player.profileImageUrl || undefined} />
+                          <AvatarFallback className="bg-amber-500/10 text-amber-500">
+                            {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium hover:text-amber-500 transition-colors">{player.nickname || player.firstName || "Jogador"}</div>
+                          <div className="text-xs text-muted-foreground">{mvpRate}% das partidas</div>
+                        </div>
+                      </Link>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-xl text-amber-500">{player.totalMvps}</span>
+                        <div className="text-xs text-muted-foreground">MVPs</div>
+                      </div>
+                      {getRankBadge(index)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>

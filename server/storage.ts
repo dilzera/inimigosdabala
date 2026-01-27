@@ -307,13 +307,19 @@ export class DatabaseStorage implements IStorage {
     const adr = totalRoundsPlayed > 0 ? aggregated.totalDamage / totalRoundsPlayed : 0;
     const winRate = aggregated.totalMatches > 0 ? (matchesWon / aggregated.totalMatches) * 100 : 50;
     
+    // MVP rate: percentage of matches where player was MVP (10% is average with 10 players)
+    // Each MVP above average adds significant skill points
+    const mvpRate = aggregated.totalMatches > 0 ? (aggregated.totalMvps / aggregated.totalMatches) * 100 : 0;
+    const mvpBonus = (mvpRate - 10) * 5; // 5 points per % above average MVP rate
+    
     const skillRating = Math.round(
       1000 +
       (kd - 1) * 150 +           // K/D impact
       (hsPercent - 30) * 2 +     // HS% impact (30% is average)
       (adr - 70) * 1.5 +         // ADR impact (70 is average)
       (winRate - 50) * 3 +       // Win rate impact
-      aggregated.totalMvps * 2 + // MVP bonus
+      mvpBonus +                 // MVP rate bonus (based on % of matches as MVP)
+      aggregated.totalMvps * 3 + // Flat MVP bonus (3 pts per MVP)
       aggregated.total5ks * 30 + // ACE bonus
       aggregated.total4ks * 15 + // 4K bonus
       aggregated.total3ks * 5    // 3K bonus

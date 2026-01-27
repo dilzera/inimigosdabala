@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { History, Trophy, Target, Skull, Calendar, CheckCircle, XCircle, TrendingUp } from "lucide-react";
+import { History, Trophy, Target, Skull, Calendar, CheckCircle, XCircle, TrendingUp, Star } from "lucide-react";
 import type { MatchStats, Match } from "@shared/schema";
 
 type MatchStatsWithMatch = {
@@ -56,6 +56,7 @@ export default function PartidasMinhas() {
   const victories = matchData.filter(m => getMatchResult(m) === "win").length;
   const defeats = matchData.filter(m => getMatchResult(m) === "loss").length;
   const winRate = totalPartidas > 0 ? ((victories / totalPartidas) * 100).toFixed(0) : "0";
+  const totalMvps = matchData.filter(m => m.stats.mvps > 0).length;
 
   return (
     <div className="space-y-6">
@@ -64,7 +65,7 @@ export default function PartidasMinhas() {
         <h1 className="text-3xl font-bold">Minhas Partidas</h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-6">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
@@ -107,6 +108,15 @@ export default function PartidasMinhas() {
               <Target className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
               <div className="text-2xl font-bold font-mono text-yellow-500">{avgKD}</div>
               <div className="text-sm text-muted-foreground">K/D Médio</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <Star className="h-8 w-8 mx-auto mb-2 text-amber-500" />
+              <div className="text-2xl font-bold font-mono text-amber-500">{totalMvps}</div>
+              <div className="text-sm text-muted-foreground">MVPs</div>
             </div>
           </CardContent>
         </Card>
@@ -165,6 +175,12 @@ export default function PartidasMinhas() {
                           <Badge variant={result === "win" ? "default" : result === "loss" ? "destructive" : "secondary"}>
                             {result === "win" ? "Vitória" : result === "loss" ? "Derrota" : "---"}
                           </Badge>
+                          {stats.mvps > 0 && (
+                            <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/50 flex items-center gap-1">
+                              <Star className="h-3 w-3" />
+                              MVP
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
