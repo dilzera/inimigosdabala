@@ -39,10 +39,85 @@ const betTypeLabels: Record<string, string> = {
   'kills_under': 'Kills abaixo de',
   'deaths_under': 'Mortes abaixo de',
   'kd_over': 'K/D acima de',
-  'headshots_over': 'Headshots acima de',
+  'headshots_over': 'HS% acima de',
   'mvps_over': 'MVPs no mínimo',
   'damage_over': 'Dano acima de',
   'win': 'Vitória na partida',
+};
+
+// Calculate minimum values based on player stats
+const getMinValueForBetType = (betType: string, player: User | undefined): number => {
+  if (!player || player.totalMatches === 0) return 1;
+  
+  const avgKills = (player.totalKills || 0) / Math.max(1, player.totalMatches);
+  const avgDeaths = (player.totalDeaths || 0) / Math.max(1, player.totalMatches);
+  const avgDamage = (player.totalDamage || 0) / Math.max(1, player.totalMatches);
+  const avgMvps = (player.totalMvps || 0) / Math.max(1, player.totalMatches);
+  const kd = (player.totalKills || 0) / Math.max(1, player.totalDeaths || 1);
+  const hsPercent = ((player.totalHeadshots || 0) / Math.max(1, player.totalKills || 1)) * 100;
+  
+  switch (betType) {
+    case 'kills_over':
+      return Math.max(1, Math.floor(avgKills * 0.5));
+    case 'kills_under':
+      return Math.max(1, Math.floor(avgKills * 0.5));
+    case 'deaths_under':
+      return Math.max(1, Math.floor(avgDeaths * 0.5));
+    case 'kd_over':
+      return Math.max(0.1, Math.floor(kd * 5) / 10);
+    case 'headshots_over':
+      return Math.max(5, Math.floor(hsPercent * 0.5));
+    case 'mvps_over':
+      return Math.max(0, Math.floor(avgMvps * 0.3));
+    case 'damage_over':
+      return Math.max(100, Math.floor(avgDamage * 0.3));
+    default:
+      return 1;
+  }
+};
+
+// Get step value based on bet type
+const getStepForBetType = (betType: string): number => {
+  if (betType === 'kd_over') return 0.1;
+  if (betType === 'headshots_over') return 5;
+  if (betType === 'damage_over') return 50;
+  return 1;
+};
+
+// Get max value based on bet type
+const getMaxValueForBetType = (betType: string, player: User | undefined): number => {
+  if (!player || player.totalMatches === 0) return 100;
+  
+  const avgKills = (player.totalKills || 0) / Math.max(1, player.totalMatches);
+  const avgDeaths = (player.totalDeaths || 0) / Math.max(1, player.totalMatches);
+  const avgDamage = (player.totalDamage || 0) / Math.max(1, player.totalMatches);
+  const kd = (player.totalKills || 0) / Math.max(1, player.totalDeaths || 1);
+  
+  switch (betType) {
+    case 'kills_over':
+      return Math.ceil(avgKills * 2);
+    case 'kills_under':
+      return Math.ceil(avgKills * 2);
+    case 'deaths_under':
+      return Math.ceil(avgDeaths * 2);
+    case 'kd_over':
+      return Math.ceil(kd * 20) / 10;
+    case 'headshots_over':
+      return 100;
+    case 'mvps_over':
+      return 10;
+    case 'damage_over':
+      return Math.ceil(avgDamage * 2);
+    default:
+      return 100;
+  }
+};
+
+// Format display value based on bet type
+const formatBetValue = (betType: string, value: number): string => {
+  if (betType === 'kd_over') return value.toFixed(1);
+  if (betType === 'headshots_over') return `${value}%`;
+  return value.toString();
 };
 
 export default function Apostas() {
@@ -54,13 +129,35 @@ export default function Apostas() {
   const [newConditionType, setNewConditionType] = useState<string>("kills_over");
   const [newConditionValue, setNewConditionValue] = useState<number>(15);
 
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const otherPlayers = users.filter(u => u.id !== user?.id && u.totalMatches > 0);
+  const selectedPlayerData = otherPlayers.find(p => p.id === selectedPlayer);
+
+  // Update value when condition type changes or player changes
+  const handleConditionTypeChange = (type: string) => {
+    setNewConditionType(type);
+    if (type !== 'win') {
+      const minValue = getMinValueForBetType(type, selectedPlayerData);
+      setNewConditionValue(minValue);
+    }
+  };
+
+  // Update default value when player changes
+  const handlePlayerChange = (playerId: string) => {
+    setSelectedPlayer(playerId);
+    const player = otherPlayers.find(p => p.id === playerId);
+    if (newConditionType !== 'win') {
+      const minValue = getMinValueForBetType(newConditionType, player);
+      setNewConditionValue(minValue);
+    }
+  };
+
   const { data: balance } = useQuery<{ balance: number; totalWon: number; totalLost: number }>({
     queryKey: ["/api/casino/balance"],
     staleTime: 10000,
-  });
-
-  const { data: users = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
   });
 
   const { data: userBets = [] } = useQuery<Array<Bet & { items: BetItem[]; targetPlayer: User | null }>>({
@@ -97,8 +194,6 @@ export default function Apostas() {
       });
     },
   });
-
-  const otherPlayers = users.filter(u => u.id !== user?.id && u.totalMatches > 0);
 
   const addCondition = () => {
     if (newConditionType === 'win') {
@@ -139,7 +234,6 @@ export default function Apostas() {
     });
   };
 
-  const selectedPlayerData = otherPlayers.find(p => p.id === selectedPlayer);
   const calculatedOdds = calculateOddsMutation.data;
 
   return (
@@ -193,7 +287,7 @@ export default function Apostas() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Jogador</Label>
-                  <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
+                  <Select value={selectedPlayer} onValueChange={handlePlayerChange}>
                     <SelectTrigger data-testid="select-player">
                       <SelectValue placeholder="Selecione um jogador" />
                     </SelectTrigger>
@@ -252,8 +346,8 @@ export default function Apostas() {
 
               <div className="space-y-4">
                 <Label>Adicionar Condição</Label>
-                <div className="flex gap-3 flex-wrap">
-                  <Select value={newConditionType} onValueChange={setNewConditionType}>
+                <div className="flex gap-3 flex-wrap items-center">
+                  <Select value={newConditionType} onValueChange={handleConditionTypeChange}>
                     <SelectTrigger className="w-[200px]" data-testid="select-condition-type">
                       <SelectValue />
                     </SelectTrigger>
@@ -265,20 +359,34 @@ export default function Apostas() {
                   </Select>
                   
                   {newConditionType !== 'win' && (
-                    <Input
-                      type="number"
-                      value={newConditionValue}
-                      onChange={(e) => setNewConditionValue(Number(e.target.value))}
-                      className="w-24"
-                      step={newConditionType === 'kd_over' ? 0.1 : 1}
-                      data-testid="input-condition-value"
-                    />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        value={newConditionValue}
+                        onChange={(e) => setNewConditionValue(Number(e.target.value))}
+                        className="w-24"
+                        min={getMinValueForBetType(newConditionType, selectedPlayerData)}
+                        max={getMaxValueForBetType(newConditionType, selectedPlayerData)}
+                        step={getStepForBetType(newConditionType)}
+                        data-testid="input-condition-value"
+                      />
+                      {newConditionType === 'headshots_over' && (
+                        <span className="text-sm text-muted-foreground">%</span>
+                      )}
+                    </div>
                   )}
                   
                   <Button onClick={addCondition} variant="outline" data-testid="button-add-condition">
                     <Plus className="h-4 w-4 mr-1" /> Adicionar
                   </Button>
                 </div>
+                {selectedPlayerData && newConditionType !== 'win' && (
+                  <p className="text-xs text-muted-foreground">
+                    Valor mínimo: {formatBetValue(newConditionType, getMinValueForBetType(newConditionType, selectedPlayerData))} 
+                    {' | '}
+                    Valor máximo: {formatBetValue(newConditionType, getMaxValueForBetType(newConditionType, selectedPlayerData))}
+                  </p>
+                )}
               </div>
 
               {conditions.length > 0 && (
@@ -288,7 +396,7 @@ export default function Apostas() {
                     {conditions.map(condition => (
                       <div key={condition.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                         <span>
-                          {betTypeLabels[condition.betType]} {condition.betType !== 'win' && condition.targetValue}
+                          {betTypeLabels[condition.betType]} {condition.betType !== 'win' && formatBetValue(condition.betType, condition.targetValue)}
                         </span>
                         <div className="flex items-center gap-2">
                           {calculatedOdds?.items?.find((i: any) => i.betType === condition.betType)?.odds && (
@@ -403,7 +511,7 @@ export default function Apostas() {
                           <div key={idx} className="flex items-center gap-1">
                             {item.won === true && <Star className="h-3 w-3 text-green-400" />}
                             {item.won === false && <Skull className="h-3 w-3 text-red-400" />}
-                            <span>{betTypeLabels[item.betType]} {item.targetValue}</span>
+                            <span>{betTypeLabels[item.betType]} {formatBetValue(item.betType, item.targetValue)}</span>
                           </div>
                         ))}
                       </div>
