@@ -36,6 +36,8 @@ import AdminCampeonato from "@/pages/admin-campeonato";
 import RankingMensal from "@/pages/ranking-mensal";
 import MixVetoMapas from "@/pages/mix-veto-mapas";
 import AdminHistoricoRankings from "@/pages/admin-historico-rankings";
+import Apostas from "@/pages/apostas";
+import Cassino from "@/pages/cassino";
 import { ServerCostPopup } from "@/components/server-cost-popup";
 import { AcePopup } from "@/components/ace-popup";
 import { ChampionshipPopup } from "@/components/championship-popup";
@@ -87,6 +89,8 @@ function Router() {
       <Route path="/patrocinadores" component={Patrocinadores} />
       <Route path="/campeonato" component={Campeonato} />
       <Route path="/denuncias" component={Denuncias} />
+      <Route path="/cassino/apostas" component={Apostas} />
+      <Route path="/cassino/jogos" component={Cassino} />
       <Route path="/partidas/minhas" component={PartidasMinhas} />
       <Route path="/partidas/todas" component={PartidasTodas} />
       <Route path="/partidas/mapas" component={MapasMaisJogados} />

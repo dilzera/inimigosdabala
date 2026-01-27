@@ -47,6 +47,9 @@ import {
   BarChart3,
   UserCheck,
   Vote,
+  Sparkles,
+  Target,
+  Box,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -362,6 +365,46 @@ export function AppSidebar() {
                           ) : (
                             <Copy className="h-4 w-4 text-muted-foreground" data-testid="icon-copy-serverip" />
                           )}
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <Collapsible className="group/collapsible" defaultOpen={location.startsWith("/cassino")}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton data-testid="nav-cassino">
+                      <Sparkles className="h-4 w-4" />
+                      <span>Cassino</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/cassino/apostas"}
+                          data-testid="nav-cassino-apostas"
+                        >
+                          <Link href="/cassino/apostas">
+                            <Target className="h-4 w-4" />
+                            <span>Apostas</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/cassino/jogos"}
+                          data-testid="nav-cassino-jogos"
+                        >
+                          <Link href="/cassino/jogos">
+                            <Box className="h-4 w-4" />
+                            <span>Caixas & Tigrinho</span>
+                          </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     </SidebarMenuSub>
