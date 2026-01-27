@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
@@ -9,7 +8,7 @@ import { ptBR } from "date-fns/locale";
 import { History, Trophy, Medal, Award, Save, Trash2, Calendar, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { User, WeeklyRanking } from "@shared/schema";
+import type { User, MonthlyRanking } from "@shared/schema";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +25,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface RankingEntry {
   rank: number;
@@ -40,6 +46,11 @@ interface RankingEntry {
   winRate: number;
   matchesPlayed: number;
 }
+
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
 
 function calculateSkillRating(user: User): number {
   const kd = user.totalDeaths > 0 ? user.totalKills / user.totalDeaths : user.totalKills;
@@ -69,27 +80,22 @@ function getPlayerDisplayName(user: User): string {
 
 export default function AdminHistoricoRankings() {
   const { toast } = useToast();
-  const [expandedRanking, setExpandedRanking] = useState<string | null>(null);
+  const [expandedRanking, setExpandedRanking] = useState<number | null>(null);
+  
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
 
-  const { data: weeklyRankings = [], isLoading } = useQuery<WeeklyRanking[]>({
-    queryKey: ["/api/weekly-rankings"],
+  const { data: monthlyRankings = [], isLoading } = useQuery<MonthlyRanking[]>({
+    queryKey: ["/api/monthly-rankings"],
   });
 
   const saveRankingMutation = useMutation({
     mutationFn: async () => {
-      const now = new Date();
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-      
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
       const activeUsers = users.filter(u => u.totalMatches > 0);
       const rankings: RankingEntry[] = activeUsers
         .map(user => {
@@ -116,34 +122,35 @@ export default function AdminHistoricoRankings() {
         .sort((a, b) => b.skillRating - a.skillRating)
         .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
-      return apiRequest("POST", "/api/weekly-rankings", {
-        weekStart: weekStart.toISOString(),
-        weekEnd: weekEnd.toISOString(),
+      return apiRequest("POST", "/api/monthly-rankings", {
+        month: selectedMonth,
+        year: selectedYear,
         rankings,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/weekly-rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/monthly-rankings"] });
       toast({
         title: "Ranking salvo!",
-        description: "O ranking semanal foi salvo com sucesso.",
+        description: `O ranking de ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} foi salvo.`,
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const message = error?.message || "Não foi possível salvar o ranking.";
       toast({
         title: "Erro",
-        description: "Não foi possível salvar o ranking.",
+        description: message.includes("já existe") ? "Já existe um ranking salvo para este mês." : message,
         variant: "destructive",
       });
     },
   });
 
   const deleteRankingMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/weekly-rankings/${id}`);
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/monthly-rankings/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/weekly-rankings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/monthly-rankings"] });
       toast({
         title: "Ranking excluído",
         description: "O registro foi removido com sucesso.",
@@ -171,9 +178,11 @@ export default function AdminHistoricoRankings() {
     }
   };
 
-  const formatDateRange = (weekStart: Date, weekEnd: Date) => {
-    return `${format(new Date(weekStart), "dd/MM", { locale: ptBR })} - ${format(new Date(weekEnd), "dd/MM/yyyy", { locale: ptBR })}`;
+  const getMonthYearLabel = (month: number, year: number) => {
+    return `${MONTH_NAMES[month - 1]} ${year}`;
   };
+
+  const years = Array.from({ length: 3 }, (_, i) => now.getFullYear() - i);
 
   return (
     <div className="space-y-6">
@@ -181,34 +190,66 @@ export default function AdminHistoricoRankings() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <History className="h-8 w-8 text-primary" />
-            Histórico de Rankings
+            Histórico de Rankings Mensais
           </h1>
           <p className="text-muted-foreground mt-1">
-            Visualize e gerencie os rankings semanais salvos
+            Visualize e salve o desempenho dos jogadores por mês
           </p>
         </div>
-        <Button
-          onClick={() => saveRankingMutation.mutate()}
-          disabled={saveRankingMutation.isPending}
-          data-testid="button-save-ranking"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {saveRankingMutation.isPending ? "Salvando..." : "Salvar Ranking Atual"}
-        </Button>
       </div>
 
       <Card className="bg-primary/5 border-primary/20">
         <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <Calendar className="h-5 w-5 text-primary mt-0.5" />
-            <div className="space-y-1">
-              <h3 className="font-semibold">Como funciona</h3>
-              <p className="text-sm text-muted-foreground">
-                Clique em "Salvar Ranking Atual" para salvar um snapshot do ranking da semana atual. 
-                Você pode salvar quantos quiser e visualizá-los posteriormente.
-              </p>
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-primary" />
+              <span className="font-medium">Salvar ranking do mês:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Select
+                value={selectedMonth.toString()}
+                onValueChange={(v) => setSelectedMonth(parseInt(v))}
+              >
+                <SelectTrigger className="w-[140px]" data-testid="select-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.map((name, index) => (
+                    <SelectItem key={index} value={(index + 1).toString()}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={selectedYear.toString()}
+                onValueChange={(v) => setSelectedYear(parseInt(v))}
+              >
+                <SelectTrigger className="w-[100px]" data-testid="select-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => saveRankingMutation.mutate()}
+                disabled={saveRankingMutation.isPending}
+                data-testid="button-save-ranking"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {saveRankingMutation.isPending ? "Salvando..." : "Salvar Ranking"}
+              </Button>
             </div>
           </div>
+          <p className="text-sm text-muted-foreground mt-4">
+            Ao salvar, um snapshot do ranking atual será guardado para o mês selecionado. 
+            Cada mês só pode ter um registro.
+          </p>
         </CardContent>
       </Card>
 
@@ -218,17 +259,17 @@ export default function AdminHistoricoRankings() {
             Carregando rankings...
           </CardContent>
         </Card>
-      ) : weeklyRankings.length === 0 ? (
+      ) : monthlyRankings.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Nenhum ranking salvo ainda.</p>
-            <p className="text-sm mt-1">Clique em "Salvar Ranking Atual" para criar o primeiro registro.</p>
+            <p>Nenhum ranking mensal salvo ainda.</p>
+            <p className="text-sm mt-1">Selecione um mês e clique em "Salvar Ranking" para criar o primeiro registro.</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {weeklyRankings.map((ranking) => {
+          {monthlyRankings.map((ranking) => {
             const isExpanded = expandedRanking === ranking.id;
             const rankingData = ranking.rankings as RankingEntry[];
 
@@ -243,13 +284,13 @@ export default function AdminHistoricoRankings() {
                             <Calendar className="h-5 w-5 text-primary" />
                             <div className="text-left">
                               <CardTitle className="text-lg">
-                                Semana: {formatDateRange(ranking.weekStart, ranking.weekEnd)}
+                                {getMonthYearLabel(ranking.month, ranking.year)}
                               </CardTitle>
                               <CardDescription className="flex items-center gap-2">
                                 <Users className="h-4 w-4" />
                                 {rankingData.length} jogadores
                                 <span className="text-xs">
-                                  • Salvo em {format(new Date(ranking.createdAt!), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                  • Salvo em {format(new Date(ranking.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                 </span>
                               </CardDescription>
                             </div>
@@ -271,7 +312,7 @@ export default function AdminHistoricoRankings() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Excluir ranking?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Esta ação não pode ser desfeita. O registro do ranking será permanentemente removido.
+                              Esta ação não pode ser desfeita. O registro de {getMonthYearLabel(ranking.month, ranking.year)} será permanentemente removido.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

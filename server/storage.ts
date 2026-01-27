@@ -6,7 +6,7 @@ import {
   payments,
   reports,
   championshipRegistrations,
-  weeklyRankings,
+  monthlyRankings,
   type User,
   type UpsertUser,
   type Match,
@@ -21,8 +21,8 @@ import {
   type UpdateReport,
   type ChampionshipRegistration,
   type InsertChampionshipRegistration,
-  type WeeklyRanking,
-  type InsertWeeklyRanking,
+  type MonthlyRanking,
+  type InsertMonthlyRanking,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -74,11 +74,12 @@ export interface IStorage {
   createChampionshipRegistration(registration: InsertChampionshipRegistration): Promise<ChampionshipRegistration>;
   deleteChampionshipRegistration(id: string): Promise<boolean>;
   
-  // Weekly ranking operations
-  getAllWeeklyRankings(): Promise<WeeklyRanking[]>;
-  getWeeklyRanking(id: string): Promise<WeeklyRanking | undefined>;
-  createWeeklyRanking(ranking: InsertWeeklyRanking): Promise<WeeklyRanking>;
-  deleteWeeklyRanking(id: string): Promise<boolean>;
+  // Monthly ranking operations
+  getAllMonthlyRankings(): Promise<MonthlyRanking[]>;
+  getMonthlyRanking(id: number): Promise<MonthlyRanking | undefined>;
+  getMonthlyRankingByMonthYear(month: number, year: number): Promise<MonthlyRanking | undefined>;
+  createMonthlyRanking(ranking: InsertMonthlyRanking): Promise<MonthlyRanking>;
+  deleteMonthlyRanking(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -565,23 +566,33 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // Weekly ranking operations
-  async getAllWeeklyRankings(): Promise<WeeklyRanking[]> {
-    return await db.select().from(weeklyRankings).orderBy(desc(weeklyRankings.weekStart));
+  // Monthly ranking operations
+  async getAllMonthlyRankings(): Promise<MonthlyRanking[]> {
+    return await db.select().from(monthlyRankings).orderBy(desc(monthlyRankings.year), desc(monthlyRankings.month));
   }
 
-  async getWeeklyRanking(id: string): Promise<WeeklyRanking | undefined> {
-    const [ranking] = await db.select().from(weeklyRankings).where(eq(weeklyRankings.id, id));
+  async getMonthlyRanking(id: number): Promise<MonthlyRanking | undefined> {
+    const [ranking] = await db.select().from(monthlyRankings).where(eq(monthlyRankings.id, id));
     return ranking;
   }
 
-  async createWeeklyRanking(ranking: InsertWeeklyRanking): Promise<WeeklyRanking> {
-    const [newRanking] = await db.insert(weeklyRankings).values(ranking).returning();
+  async getMonthlyRankingByMonthYear(month: number, year: number): Promise<MonthlyRanking | undefined> {
+    const [ranking] = await db.select().from(monthlyRankings)
+      .where(sql`${monthlyRankings.month} = ${month} AND ${monthlyRankings.year} = ${year}`);
+    return ranking;
+  }
+
+  async createMonthlyRanking(ranking: InsertMonthlyRanking): Promise<MonthlyRanking> {
+    const [newRanking] = await db.insert(monthlyRankings).values({
+      month: ranking.month,
+      year: ranking.year,
+      rankings: ranking.rankings,
+    }).returning();
     return newRanking;
   }
 
-  async deleteWeeklyRanking(id: string): Promise<boolean> {
-    const result = await db.delete(weeklyRankings).where(eq(weeklyRankings.id, id)).returning();
+  async deleteMonthlyRanking(id: number): Promise<boolean> {
+    const result = await db.delete(monthlyRankings).where(eq(monthlyRankings.id, id)).returning();
     return result.length > 0;
   }
 }

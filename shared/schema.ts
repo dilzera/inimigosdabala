@@ -225,22 +225,14 @@ export const championshipRegistrationsRelations = relations(championshipRegistra
   }),
 }));
 
-// Weekly ranking snapshots table
-export const weeklyRankings = pgTable("weekly_rankings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  weekStart: timestamp("week_start").notNull(),
-  weekEnd: timestamp("week_end").notNull(),
-  rankings: jsonb("rankings").notNull(), // Array of player rankings
-  createdAt: timestamp("created_at").defaultNow(),
-  createdBy: varchar("created_by").references(() => users.id),
+// Monthly ranking snapshots table
+export const monthlyRankings = pgTable("monthly_rankings", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  month: integer("month").notNull(), // 1-12
+  year: integer("year").notNull(),
+  rankings: jsonb("rankings").notNull(), // Array of player rankings with stats
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
-
-export const weeklyRankingsRelations = relations(weeklyRankings, ({ one }) => ({
-  creator: one(users, {
-    fields: [weeklyRankings.createdBy],
-    references: [users.id],
-  }),
-}));
 
 // Schemas
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -316,9 +308,10 @@ export const insertChampionshipRegistrationSchema = createInsertSchema(champions
   createdAt: true,
 });
 
-export const insertWeeklyRankingSchema = createInsertSchema(weeklyRankings).omit({
-  id: true,
-  createdAt: true,
+export const insertMonthlyRankingSchema = z.object({
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2020).max(2100),
+  rankings: z.any(),
 });
 
 // Types
@@ -336,5 +329,5 @@ export type InsertReport = z.infer<typeof insertReportSchema>;
 export type UpdateReport = z.infer<typeof updateReportSchema>;
 export type ChampionshipRegistration = typeof championshipRegistrations.$inferSelect;
 export type InsertChampionshipRegistration = z.infer<typeof insertChampionshipRegistrationSchema>;
-export type WeeklyRanking = typeof weeklyRankings.$inferSelect;
-export type InsertWeeklyRanking = z.infer<typeof insertWeeklyRankingSchema>;
+export type MonthlyRanking = typeof monthlyRankings.$inferSelect;
+export type InsertMonthlyRanking = z.infer<typeof insertMonthlyRankingSchema>;

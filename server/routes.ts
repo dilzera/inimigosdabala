@@ -913,8 +913,8 @@ export async function registerRoutes(
     }
   });
 
-  // Weekly Rankings endpoints (Admin only)
-  app.get('/api/weekly-rankings', isAuthenticated, async (req: any, res) => {
+  // Monthly Rankings endpoints (Admin only)
+  app.get('/api/monthly-rankings', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const currentUser = await storage.getUser(userId);
@@ -923,15 +923,15 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden - Admin access required" });
       }
 
-      const rankings = await storage.getAllWeeklyRankings();
+      const rankings = await storage.getAllMonthlyRankings();
       res.json(rankings);
     } catch (error) {
-      console.error("Error fetching weekly rankings:", error);
-      res.status(500).json({ message: "Failed to fetch weekly rankings" });
+      console.error("Error fetching monthly rankings:", error);
+      res.status(500).json({ message: "Failed to fetch monthly rankings" });
     }
   });
 
-  app.get('/api/weekly-rankings/:id', isAuthenticated, async (req: any, res) => {
+  app.post('/api/monthly-rankings', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const currentUser = await storage.getUser(userId);
@@ -940,49 +940,32 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden - Admin access required" });
       }
 
-      const ranking = await storage.getWeeklyRanking(req.params.id);
-      
-      if (!ranking) {
-        return res.status(404).json({ message: "Ranking not found" });
-      }
+      const { month, year, rankings } = req.body;
 
-      res.json(ranking);
-    } catch (error) {
-      console.error("Error fetching weekly ranking:", error);
-      res.status(500).json({ message: "Failed to fetch weekly ranking" });
-    }
-  });
-
-  app.post('/api/weekly-rankings', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const currentUser = await storage.getUser(userId);
-      
-      if (!currentUser?.isAdmin) {
-        return res.status(403).json({ message: "Forbidden - Admin access required" });
-      }
-
-      const { weekStart, weekEnd, rankings } = req.body;
-
-      if (!weekStart || !weekEnd || !rankings) {
+      if (!month || !year || !rankings) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      const newRanking = await storage.createWeeklyRanking({
-        weekStart: new Date(weekStart),
-        weekEnd: new Date(weekEnd),
+      // Check if ranking for this month/year already exists
+      const existing = await storage.getMonthlyRankingByMonthYear(month, year);
+      if (existing) {
+        return res.status(400).json({ message: "Ranking para este mês já existe" });
+      }
+
+      const newRanking = await storage.createMonthlyRanking({
+        month,
+        year,
         rankings,
-        createdBy: userId,
       });
 
       res.json(newRanking);
     } catch (error) {
-      console.error("Error creating weekly ranking:", error);
-      res.status(500).json({ message: "Failed to create weekly ranking" });
+      console.error("Error creating monthly ranking:", error);
+      res.status(500).json({ message: "Failed to create monthly ranking" });
     }
   });
 
-  app.delete('/api/weekly-rankings/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/monthly-rankings/:id', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const currentUser = await storage.getUser(userId);
@@ -991,7 +974,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden - Admin access required" });
       }
 
-      const deleted = await storage.deleteWeeklyRanking(req.params.id);
+      const deleted = await storage.deleteMonthlyRanking(parseInt(req.params.id));
       
       if (!deleted) {
         return res.status(404).json({ message: "Ranking not found" });
@@ -999,8 +982,8 @@ export async function registerRoutes(
 
       res.json({ message: "Ranking deleted successfully" });
     } catch (error) {
-      console.error("Error deleting weekly ranking:", error);
-      res.status(500).json({ message: "Failed to delete weekly ranking" });
+      console.error("Error deleting monthly ranking:", error);
+      res.status(500).json({ message: "Failed to delete monthly ranking" });
     }
   });
 
