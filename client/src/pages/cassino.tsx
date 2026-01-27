@@ -34,6 +34,15 @@ interface SlotResult {
   symbols: string[][];
 }
 
+interface MultiSpinResult {
+  results: SlotResult[];
+  totalWinnings: number;
+  totalBet: number;
+  netResult: number;
+  wins: number;
+  losses: number;
+}
+
 interface CaseResult {
   item: {
     name: string;
@@ -60,11 +69,14 @@ const rarityColors: Record<string, string> = {
 export default function Cassino() {
   const { toast } = useToast();
   const [slotBet, setSlotBet] = useState<number>(100);
+  const [slotRounds, setSlotRounds] = useState<number>(1);
   const [selectedCase, setSelectedCase] = useState<string>("basic");
   const [slotResult, setSlotResult] = useState<SlotResult | null>(null);
+  const [multiSpinResult, setMultiSpinResult] = useState<MultiSpinResult | null>(null);
   const [caseResult, setCaseResult] = useState<CaseResult | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
+  const [currentRound, setCurrentRound] = useState<number>(0);
 
   const { data: balance, refetch: refetchBalance } = useQuery<{ balance: number; totalWon: number; totalLost: number }>({
     queryKey: ["/api/casino/balance"],
@@ -129,10 +141,56 @@ export default function Cassino() {
     if (slotBet < 10) return;
     setIsSpinning(true);
     setSlotResult(null);
+    setMultiSpinResult(null);
+    setCurrentRound(0);
     
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    await slotMutation.mutateAsync(slotBet);
+    const results: SlotResult[] = [];
+    let totalWinnings = 0;
+    let wins = 0;
+    let losses = 0;
+    
+    for (let i = 0; i < slotRounds; i++) {
+      setCurrentRound(i + 1);
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      try {
+        const result = await slotMutation.mutateAsync(slotBet);
+        results.push(result);
+        setSlotResult(result);
+        
+        if (result.won) {
+          totalWinnings += result.winnings;
+          wins++;
+        } else {
+          losses++;
+        }
+      } catch {
+        break;
+      }
+    }
+    
+    const totalBet = slotBet * results.length;
+    const netResult = totalWinnings - totalBet;
+    
+    if (results.length > 1) {
+      setMultiSpinResult({
+        results,
+        totalWinnings,
+        totalBet,
+        netResult,
+        wins,
+        losses,
+      });
+      
+      toast({
+        title: netResult >= 0 ? "Sessão Finalizada!" : "Fim da Sessão",
+        description: `${wins} vitórias, ${losses} derrotas. ${netResult >= 0 ? 'Lucro' : 'Prejuízo'}: R$ ${Math.abs(netResult).toLocaleString('pt-BR')}`,
+        variant: netResult >= 0 ? "default" : "destructive",
+      });
+    }
+    
     setIsSpinning(false);
+    setCurrentRound(0);
   };
 
   const handleOpenCase = async () => {
@@ -303,11 +361,11 @@ export default function Cassino() {
                   <div key={rarity} className={`p-2 rounded text-center ${classes} border`}>
                     <p className="font-medium">{rarity}</p>
                     <p className="text-xs opacity-70">
-                      {rarity === 'Consumidor' ? '60%' :
-                       rarity === 'Industrial' ? '25%' :
-                       rarity === 'Militar' ? '10%' :
-                       rarity === 'Restrito' ? '4%' :
-                       rarity === 'Secreto' ? '0.8%' : '0.2%'}
+                      {rarity === 'Consumidor' ? '40% (perda)' :
+                       rarity === 'Industrial' ? '30% (2x-5x)' :
+                       rarity === 'Militar' ? '18% (5x-15x)' :
+                       rarity === 'Restrito' ? '8% (15x-30x)' :
+                       rarity === 'Secreto' ? '3.5% (30x-50x)' : '0.5% (50x)'}
                     </p>
                   </div>
                 ))}
@@ -351,7 +409,15 @@ export default function Cassino() {
                   ))}
                 </div>
 
-                {slotResult && !isSpinning && (
+                {isSpinning && slotRounds > 1 && (
+                  <div className="text-center p-3 bg-amber-500/20 rounded-lg border border-amber-500/50">
+                    <p className="text-lg font-bold text-amber-400">
+                      Rodada {currentRound} de {slotRounds}
+                    </p>
+                  </div>
+                )}
+
+                {slotResult && !isSpinning && !multiSpinResult && (
                   <div className={`text-center p-4 rounded-lg ${
                     slotResult.won 
                       ? 'bg-green-500/20 border border-green-500/50' 
@@ -380,22 +446,89 @@ export default function Cassino() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-4">
+                {multiSpinResult && !isSpinning && (
+                  <div className={`w-full p-4 rounded-lg border ${
+                    multiSpinResult.netResult >= 0 
+                      ? 'bg-green-500/20 border-green-500/50' 
+                      : 'bg-red-500/20 border-red-500/50'
+                  }`}>
+                    <div className="text-center mb-4">
+                      <p className="text-lg font-bold">Resumo da Sessão ({multiSpinResult.results.length} rodadas)</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Vitórias</p>
+                        <p className="text-2xl font-bold text-green-400">{multiSpinResult.wins}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Derrotas</p>
+                        <p className="text-2xl font-bold text-red-400">{multiSpinResult.losses}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Apostado</p>
+                        <p className="text-xl font-mono">R$ {multiSpinResult.totalBet.toLocaleString('pt-BR')}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Ganho</p>
+                        <p className="text-xl font-mono text-amber-400">R$ {multiSpinResult.totalWinnings.toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                    <Separator className="my-4" />
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Resultado Final</p>
+                      <p className={`text-3xl font-mono font-bold ${multiSpinResult.netResult >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {multiSpinResult.netResult >= 0 ? '+' : ''}R$ {multiSpinResult.netResult.toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-end gap-4 justify-center">
                   <div className="space-y-2">
-                    <Label htmlFor="slot-bet">Valor da Aposta</Label>
+                    <Label htmlFor="slot-bet">Valor por Rodada</Label>
                     <Input
                       id="slot-bet"
                       type="number"
                       min={10}
                       value={slotBet}
                       onChange={(e) => setSlotBet(Number(e.target.value))}
-                      className="w-40 text-center font-mono"
+                      className="w-32 text-center font-mono"
                       data-testid="input-slot-bet"
                     />
                   </div>
                   
-                  <div className="flex gap-2 mt-6">
-                    {[100, 1000, 10000, 100000].map(amount => (
+                  <div className="space-y-2">
+                    <Label htmlFor="slot-rounds">Rodadas (1-10)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="slot-rounds"
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={slotRounds}
+                        onChange={(e) => setSlotRounds(Math.min(10, Math.max(1, Number(e.target.value))))}
+                        className="w-20 text-center font-mono"
+                        data-testid="input-slot-rounds"
+                      />
+                      <div className="flex gap-1">
+                        {[1, 5, 10].map(rounds => (
+                          <Button 
+                            key={rounds}
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSlotRounds(rounds)}
+                            className={slotRounds === rounds ? 'bg-primary/20' : ''}
+                            data-testid={`button-rounds-${rounds}`}
+                          >
+                            {rounds}x
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    {[100, 1000, 10000].map(amount => (
                       <Button 
                         key={amount}
                         variant="outline" 
@@ -408,6 +541,10 @@ export default function Cassino() {
                     ))}
                   </div>
                 </div>
+                
+                <p className="text-sm text-muted-foreground text-center">
+                  Total: R$ {(slotBet * slotRounds).toLocaleString('pt-BR')} ({slotRounds} rodada{slotRounds > 1 ? 's' : ''})
+                </p>
 
                 <Button 
                   size="lg"
@@ -419,12 +556,15 @@ export default function Cassino() {
                   {isSpinning ? (
                     <>
                       <Zap className="h-5 w-5 mr-2 animate-spin" />
-                      Girando...
+                      {slotRounds > 1 ? `Rodada ${currentRound}/${slotRounds}...` : 'Girando...'}
                     </>
                   ) : (
                     <>
                       <Play className="h-5 w-5 mr-2" />
-                      GIRAR - R$ {slotBet.toLocaleString('pt-BR')}
+                      {slotRounds > 1 
+                        ? `JOGAR ${slotRounds}x - R$ ${(slotBet * slotRounds).toLocaleString('pt-BR')}`
+                        : `GIRAR - R$ ${slotBet.toLocaleString('pt-BR')}`
+                      }
                     </>
                   )}
                 </Button>

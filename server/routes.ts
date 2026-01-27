@@ -1314,29 +1314,29 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Saldo insuficiente para abrir essa caixa" });
       }
 
-      // Generate random item with weighted rarity
+      // Generate random item with weighted rarity - 30% total win chance with 2x-50x
       const roll = Math.random() * 100;
       let rarity: string;
       let multiplier: number;
       
-      if (roll < 60) {
-        rarity = 'Consumidor'; // 60%
-        multiplier = 0.1 + Math.random() * 0.4; // 0.1x - 0.5x
-      } else if (roll < 85) {
-        rarity = 'Industrial'; // 25%
-        multiplier = 0.5 + Math.random() * 0.5; // 0.5x - 1.0x
-      } else if (roll < 95) {
-        rarity = 'Militar'; // 10%
-        multiplier = 1.0 + Math.random() * 2.0; // 1.0x - 3.0x
-      } else if (roll < 99) {
-        rarity = 'Restrito'; // 4%
-        multiplier = 3.0 + Math.random() * 7.0; // 3.0x - 10.0x
-      } else if (roll < 99.8) {
-        rarity = 'Secreto'; // 0.8%
-        multiplier = 10.0 + Math.random() * 40.0; // 10x - 50x
+      if (roll < 40) {
+        rarity = 'Consumidor'; // 40% - always loss (0.1x - 0.9x)
+        multiplier = 0.1 + Math.random() * 0.8;
+      } else if (roll < 70) {
+        rarity = 'Industrial'; // 30% - wins start here (2x - 5x)
+        multiplier = 2.0 + Math.random() * 3.0;
+      } else if (roll < 88) {
+        rarity = 'Militar'; // 18% - medium win (5x - 15x)
+        multiplier = 5.0 + Math.random() * 10.0;
+      } else if (roll < 96) {
+        rarity = 'Restrito'; // 8% - good win (15x - 30x)
+        multiplier = 15.0 + Math.random() * 15.0;
+      } else if (roll < 99.5) {
+        rarity = 'Secreto'; // 3.5% - great win (30x - 50x)
+        multiplier = 30.0 + Math.random() * 20.0;
       } else {
-        rarity = 'Faca/Luva'; // 0.2%
-        multiplier = 50.0 + Math.random() * 150.0; // 50x - 200x
+        rarity = 'Faca/Luva'; // 0.5% - jackpot (50x)
+        multiplier = 50.0;
       }
 
       multiplier = Math.round(multiplier * 100) / 100;
