@@ -244,7 +244,7 @@ export async function registerRoutes(
     }
   });
 
-  // Link SteamID64 to user account
+  // Link SteamID64 to user account (with automatic merge if already exists)
   app.post('/api/users/link-steam', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -257,9 +257,26 @@ export async function registerRoutes(
       // Check if this steamId64 is already linked to another account
       const existingUser = await storage.getUserBySteamId(steamId64);
       if (existingUser && existingUser.id !== userId) {
-        return res.status(400).json({ message: "Este SteamID64 já está vinculado a outra conta" });
+        // Automatically merge the existing steam user's data into current user
+        console.log(`Merging user ${existingUser.id} into ${userId} (SteamID: ${steamId64})`);
+        
+        const mergedUser = await storage.mergeUsers(existingUser.id, userId);
+        if (mergedUser) {
+          // Recalculate stats after merge
+          await storage.recalculateUserStats(userId);
+          return res.json({
+            ...mergedUser,
+            merged: true,
+            message: `Dados mesclados com sucesso! ${existingUser.totalMatches || 0} partidas foram transferidas.`
+          });
+        } else {
+          return res.status(400).json({ 
+            message: "Não foi possível mesclar os dados. Tente novamente." 
+          });
+        }
       }
 
+      // SteamID64 is new or already belongs to current user
       const updatedUser = await storage.updateUserStats(userId, { steamId64 });
       
       if (!updatedUser) {
