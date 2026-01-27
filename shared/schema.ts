@@ -314,6 +314,74 @@ export const insertMonthlyRankingSchema = z.object({
   rankings: z.any(),
 });
 
+// Casino balance table - fictional money for betting
+export const casinoBalances = pgTable("casino_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  balance: real("balance").default(10000000).notNull(), // Start with R$10 million
+  totalWon: real("total_won").default(0).notNull(),
+  totalLost: real("total_lost").default(0).notNull(),
+  totalBets: integer("total_bets").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Bets table - main bet record
+export const bets = pgTable("bets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  targetPlayerId: varchar("target_player_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  matchId: varchar("match_id").references(() => matches.id, { onDelete: 'set null' }),
+  amount: real("amount").notNull(), // Amount wagered
+  totalOdds: real("total_odds").notNull(), // Combined odds
+  potentialWin: real("potential_win").notNull(), // amount * totalOdds
+  status: varchar("status").default("pending").notNull(), // pending, won, lost, cancelled
+  result: varchar("result"), // Details about result
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+// Bet items - individual conditions within a bet
+export const betItems = pgTable("bet_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  betId: varchar("bet_id").notNull().references(() => bets.id, { onDelete: 'cascade' }),
+  betType: varchar("bet_type").notNull(), // kills_over, kills_under, kd_over, kd_under, win, headshots_over, etc.
+  targetValue: real("target_value").notNull(), // The value to compare against
+  odds: real("odds").notNull(), // Individual odds for this condition
+  won: boolean("won"), // null if pending, true/false after resolution
+  actualValue: real("actual_value"), // Actual value achieved
+});
+
+// Casino transactions for case openings and slots
+export const casinoTransactions = pgTable("casino_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: varchar("type").notNull(), // bet, case_opening, slot_win, slot_loss
+  amount: real("amount").notNull(), // Positive for wins, negative for losses
+  description: varchar("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCasinoBalanceSchema = createInsertSchema(casinoBalances).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBetSchema = z.object({
+  targetPlayerId: z.string(),
+  amount: z.number().min(10, "Aposta mínima é R$10"),
+  items: z.array(z.object({
+    betType: z.string(),
+    targetValue: z.number(),
+  })).min(1, "Selecione pelo menos uma condição"),
+});
+
+export const insertCasinoTransactionSchema = createInsertSchema(casinoTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -331,3 +399,10 @@ export type ChampionshipRegistration = typeof championshipRegistrations.$inferSe
 export type InsertChampionshipRegistration = z.infer<typeof insertChampionshipRegistrationSchema>;
 export type MonthlyRanking = typeof monthlyRankings.$inferSelect;
 export type InsertMonthlyRanking = z.infer<typeof insertMonthlyRankingSchema>;
+export type CasinoBalance = typeof casinoBalances.$inferSelect;
+export type InsertCasinoBalance = z.infer<typeof insertCasinoBalanceSchema>;
+export type Bet = typeof bets.$inferSelect;
+export type BetItem = typeof betItems.$inferSelect;
+export type InsertBet = z.infer<typeof insertBetSchema>;
+export type CasinoTransaction = typeof casinoTransactions.$inferSelect;
+export type InsertCasinoTransaction = z.infer<typeof insertCasinoTransactionSchema>;

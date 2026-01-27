@@ -7,6 +7,10 @@ import {
   reports,
   championshipRegistrations,
   monthlyRankings,
+  casinoBalances,
+  bets,
+  betItems,
+  casinoTransactions,
   type User,
   type UpsertUser,
   type Match,
@@ -23,6 +27,10 @@ import {
   type InsertChampionshipRegistration,
   type MonthlyRanking,
   type InsertMonthlyRanking,
+  type CasinoBalance,
+  type Bet,
+  type BetItem,
+  type CasinoTransaction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -80,6 +88,16 @@ export interface IStorage {
   getMonthlyRankingByMonthYear(month: number, year: number): Promise<MonthlyRanking | undefined>;
   createMonthlyRanking(ranking: InsertMonthlyRanking): Promise<MonthlyRanking>;
   deleteMonthlyRanking(id: number): Promise<boolean>;
+  
+  // Casino operations
+  getCasinoBalance(userId: string): Promise<CasinoBalance | undefined>;
+  getOrCreateCasinoBalance(userId: string): Promise<CasinoBalance>;
+  updateCasinoBalance(userId: string, delta: number, type: string, description: string): Promise<CasinoBalance | undefined>;
+  createBet(userId: string, targetPlayerId: string, amount: number, items: Array<{betType: string, targetValue: number, odds: number}>): Promise<Bet | undefined>;
+  getUserBets(userId: string): Promise<Array<Bet & { items: BetItem[], targetPlayer: User | null }>>;
+  getPendingBetsForPlayer(targetPlayerId: string): Promise<Bet[]>;
+  resolveBet(betId: string, matchStats: MatchStats): Promise<Bet | undefined>;
+  getCasinoTransactions(userId: string): Promise<CasinoTransaction[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -594,6 +612,211 @@ export class DatabaseStorage implements IStorage {
   async deleteMonthlyRanking(id: number): Promise<boolean> {
     const result = await db.delete(monthlyRankings).where(eq(monthlyRankings.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Casino operations
+  async getCasinoBalance(userId: string): Promise<CasinoBalance | undefined> {
+    const [balance] = await db.select().from(casinoBalances).where(eq(casinoBalances.userId, userId));
+    return balance;
+  }
+
+  async getOrCreateCasinoBalance(userId: string): Promise<CasinoBalance> {
+    let balance = await this.getCasinoBalance(userId);
+    if (!balance) {
+      const [newBalance] = await db.insert(casinoBalances).values({
+        userId,
+        balance: 10000000, // R$10 million starting balance
+      }).returning();
+      balance = newBalance;
+    }
+    return balance;
+  }
+
+  async updateCasinoBalance(userId: string, delta: number, type: string, description: string): Promise<CasinoBalance | undefined> {
+    const currentBalance = await this.getOrCreateCasinoBalance(userId);
+    const newBalance = currentBalance.balance + delta;
+    
+    if (newBalance < 0) {
+      return undefined; // Can't go below zero
+    }
+
+    // Update balance
+    const [updated] = await db.update(casinoBalances)
+      .set({
+        balance: newBalance,
+        totalWon: delta > 0 ? sql`${casinoBalances.totalWon} + ${delta}` : casinoBalances.totalWon,
+        totalLost: delta < 0 ? sql`${casinoBalances.totalLost} + ${Math.abs(delta)}` : casinoBalances.totalLost,
+        totalBets: type === 'bet' ? sql`${casinoBalances.totalBets} + 1` : casinoBalances.totalBets,
+        updatedAt: new Date(),
+      })
+      .where(eq(casinoBalances.userId, userId))
+      .returning();
+
+    // Record transaction
+    await db.insert(casinoTransactions).values({
+      userId,
+      type,
+      amount: delta,
+      description,
+    });
+
+    return updated;
+  }
+
+  async createBet(
+    userId: string, 
+    targetPlayerId: string, 
+    amount: number, 
+    items: Array<{betType: string, targetValue: number, odds: number}>
+  ): Promise<Bet | undefined> {
+    // Calculate total odds (multiply all individual odds)
+    const totalOdds = items.reduce((acc, item) => acc * item.odds, 1);
+    const potentialWin = amount * totalOdds;
+
+    // Deduct from balance first
+    const balanceUpdate = await this.updateCasinoBalance(userId, -amount, 'bet', `Aposta em jogador`);
+    if (!balanceUpdate) {
+      return undefined; // Insufficient funds
+    }
+
+    // Create the bet
+    const [bet] = await db.insert(bets).values({
+      userId,
+      targetPlayerId,
+      amount,
+      totalOdds,
+      potentialWin,
+      status: 'pending',
+    }).returning();
+
+    // Create bet items
+    for (const item of items) {
+      await db.insert(betItems).values({
+        betId: bet.id,
+        betType: item.betType,
+        targetValue: item.targetValue,
+        odds: item.odds,
+      });
+    }
+
+    return bet;
+  }
+
+  async getUserBets(userId: string): Promise<Array<Bet & { items: BetItem[], targetPlayer: User | null }>> {
+    const userBets = await db.select().from(bets).where(eq(bets.userId, userId)).orderBy(desc(bets.createdAt));
+    
+    const result: Array<Bet & { items: BetItem[], targetPlayer: User | null }> = [];
+    
+    for (const bet of userBets) {
+      const items = await db.select().from(betItems).where(eq(betItems.betId, bet.id));
+      const targetPlayer = await this.getUser(bet.targetPlayerId);
+      result.push({
+        ...bet,
+        items,
+        targetPlayer: targetPlayer || null,
+      });
+    }
+    
+    return result;
+  }
+
+  async getPendingBetsForPlayer(targetPlayerId: string): Promise<Bet[]> {
+    return await db.select().from(bets)
+      .where(sql`${bets.targetPlayerId} = ${targetPlayerId} AND ${bets.status} = 'pending'`);
+  }
+
+  async resolveBet(betId: string, matchStat: MatchStats): Promise<Bet | undefined> {
+    const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
+    if (!bet || bet.status !== 'pending') return undefined;
+
+    const items = await db.select().from(betItems).where(eq(betItems.betId, betId));
+    
+    let allWon = true;
+    const results: string[] = [];
+
+    for (const item of items) {
+      let actualValue: number;
+      let won: boolean;
+
+      switch (item.betType) {
+        case 'kills_over':
+          actualValue = matchStat.kills;
+          won = actualValue > item.targetValue;
+          results.push(`Kills: ${actualValue} (meta: >${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
+          break;
+        case 'kills_under':
+          actualValue = matchStat.kills;
+          won = actualValue < item.targetValue;
+          results.push(`Kills: ${actualValue} (meta: <${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
+          break;
+        case 'deaths_under':
+          actualValue = matchStat.deaths;
+          won = actualValue < item.targetValue;
+          results.push(`Deaths: ${actualValue} (meta: <${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
+          break;
+        case 'kd_over':
+          actualValue = matchStat.deaths > 0 ? matchStat.kills / matchStat.deaths : matchStat.kills;
+          won = actualValue > item.targetValue;
+          results.push(`K/D: ${actualValue.toFixed(2)} (meta: >${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
+          break;
+        case 'headshots_over':
+          actualValue = matchStat.headshots;
+          won = actualValue > item.targetValue;
+          results.push(`Headshots: ${actualValue} (meta: >${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
+          break;
+        case 'mvps_over':
+          actualValue = matchStat.mvps;
+          won = actualValue >= item.targetValue;
+          results.push(`MVPs: ${actualValue} (meta: >=${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
+          break;
+        case 'damage_over':
+          actualValue = matchStat.damage;
+          won = actualValue > item.targetValue;
+          results.push(`Damage: ${actualValue} (meta: >${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
+          break;
+        case 'win':
+          // Check if the player's team won
+          actualValue = matchStat.team === 'CT' || matchStat.team === 'TERRORIST' ? 1 : 0; // Simplified for now
+          won = true; // Would need match result
+          results.push(`Vitória: ${won ? 'Sim' : 'Não'}`);
+          break;
+        default:
+          actualValue = 0;
+          won = false;
+      }
+
+      if (!won) allWon = false;
+
+      // Update item result
+      await db.update(betItems)
+        .set({ won, actualValue })
+        .where(eq(betItems.id, item.id));
+    }
+
+    // Update bet status
+    const status = allWon ? 'won' : 'lost';
+    const [updatedBet] = await db.update(bets)
+      .set({
+        status,
+        result: results.join('\n'),
+        resolvedAt: new Date(),
+      })
+      .where(eq(bets.id, betId))
+      .returning();
+
+    // If won, add winnings to balance
+    if (allWon) {
+      await this.updateCasinoBalance(bet.userId, bet.potentialWin, 'bet_win', `Ganhou aposta! Odds: ${bet.totalOdds.toFixed(2)}x`);
+    }
+
+    return updatedBet;
+  }
+
+  async getCasinoTransactions(userId: string): Promise<CasinoTransaction[]> {
+    return await db.select().from(casinoTransactions)
+      .where(eq(casinoTransactions.userId, userId))
+      .orderBy(desc(casinoTransactions.createdAt))
+      .limit(50);
   }
 }
 
