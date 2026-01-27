@@ -383,6 +383,17 @@ export async function registerRoutes(
         finalTeam2Score = Math.round(t2Kills / 5);
       }
 
+      // Derive winner team if not provided, based on scores
+      let finalWinnerTeam: string | null = winnerTeam || null;
+      if (!finalWinnerTeam && finalTeam1Score !== undefined && finalTeam2Score !== undefined) {
+        if (finalTeam1Score > finalTeam2Score) {
+          finalWinnerTeam = team1Name;
+        } else if (finalTeam2Score > finalTeam1Score) {
+          finalWinnerTeam = team2Name;
+        }
+        // If tied, leave as null
+      }
+
       // Create match with winner info
       const match = await storage.createMatch({
         externalMatchId: matchId,
@@ -392,7 +403,7 @@ export async function registerRoutes(
         team2Name,
         team1Score: finalTeam1Score,
         team2Score: finalTeam2Score,
-        winnerTeam: winnerTeam || null,
+        winnerTeam: finalWinnerTeam,
         date: new Date(),
       });
 
@@ -459,10 +470,26 @@ export async function registerRoutes(
         await storage.recalculateUserStats(id);
       }
 
+      // Resolve pending bets for all players in this match
+      let betsResolved = 0;
+      const matchStats = await storage.getMatchStats(match.id);
+      
+      for (const stat of matchStats) {
+        // Find pending bets for this player
+        const pendingBets = await storage.getPendingBetsForPlayer(stat.userId);
+        
+        for (const bet of pendingBets) {
+          // Pass the match winner team for "win" bet type resolution
+          await storage.resolveBet(bet.id, stat, finalWinnerTeam);
+          betsResolved++;
+        }
+      }
+
       res.json({ 
         message: "Match imported successfully",
         matchId: match.id,
-        playersProcessed: rows.length
+        playersProcessed: rows.length,
+        betsResolved
       });
     } catch (error) {
       console.error("Error importing match:", error);

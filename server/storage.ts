@@ -96,7 +96,7 @@ export interface IStorage {
   createBet(userId: string, targetPlayerId: string, amount: number, items: Array<{betType: string, targetValue: number, odds: number}>): Promise<Bet | undefined>;
   getUserBets(userId: string): Promise<Array<Bet & { items: BetItem[], targetPlayer: User | null }>>;
   getPendingBetsForPlayer(targetPlayerId: string): Promise<Bet[]>;
-  resolveBet(betId: string, matchStats: MatchStats): Promise<Bet | undefined>;
+  resolveBet(betId: string, matchStats: MatchStats, winnerTeam: string | null): Promise<Bet | undefined>;
   getCasinoTransactions(userId: string): Promise<CasinoTransaction[]>;
 }
 
@@ -725,11 +725,19 @@ export class DatabaseStorage implements IStorage {
       .where(sql`${bets.targetPlayerId} = ${targetPlayerId} AND ${bets.status} = 'pending'`);
   }
 
-  async resolveBet(betId: string, matchStat: MatchStats): Promise<Bet | undefined> {
+  async resolveBet(betId: string, matchStat: MatchStats, winnerTeam: string | null): Promise<Bet | undefined> {
     const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
     if (!bet || bet.status !== 'pending') return undefined;
 
     const items = await db.select().from(betItems).where(eq(betItems.betId, betId));
+    
+    // Check if any bet item requires win type and winnerTeam is null
+    // If so, we can't resolve the bet yet - keep it pending
+    const hasWinBetType = items.some(item => item.betType === 'win');
+    if (hasWinBetType && winnerTeam === null) {
+      // Can't resolve "win" bets without knowing the winner, keep pending
+      return undefined;
+    }
     
     let allWon = true;
     const results: string[] = [];
@@ -775,10 +783,12 @@ export class DatabaseStorage implements IStorage {
           results.push(`Damage: ${actualValue} (meta: >${item.targetValue}) - ${won ? 'Acertou!' : 'Errou'}`);
           break;
         case 'win':
-          // Check if the player's team won
-          actualValue = matchStat.team === 'CT' || matchStat.team === 'TERRORIST' ? 1 : 0; // Simplified for now
-          won = true; // Would need match result
-          results.push(`Vitória: ${won ? 'Sim' : 'Não'}`);
+          // Check if the player's team won by comparing with winnerTeam
+          // Note: We already checked upfront that winnerTeam is not null for win bets
+          const playerTeam = matchStat.team;
+          won = playerTeam === winnerTeam;
+          actualValue = won ? 1 : 0;
+          results.push(`Vitória do time ${playerTeam}: ${won ? 'Sim' : 'Não'} (Vencedor: ${winnerTeam})`);
           break;
         default:
           actualValue = 0;
