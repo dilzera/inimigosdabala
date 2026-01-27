@@ -18,6 +18,7 @@ export function ServerCostPopup() {
   const pixKey = "12982690148";
 
   useEffect(() => {
+    // Show first with 1.5s delay
     const timer = setTimeout(() => setOpen(true), 1500);
     return () => clearTimeout(timer);
   }, []);

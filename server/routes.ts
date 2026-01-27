@@ -495,6 +495,118 @@ export async function registerRoutes(
     }
   });
 
+  // Get monthly stats for all players
+  app.get('/api/stats/monthly', isAuthenticated, async (req: any, res) => {
+    try {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      
+      // Get all matches from current month
+      const allMatches = await storage.getAllMatches();
+      const monthlyMatches = allMatches.filter(m => {
+        const matchDate = new Date(m.date);
+        return matchDate >= firstDayOfMonth && matchDate <= lastDayOfMonth;
+      });
+      
+      // Get all users
+      const allUsers = await storage.getAllUsers();
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+      
+      // Calculate stats per player for the month
+      const playerStats: Record<string, {
+        userId: string;
+        kills: number;
+        deaths: number;
+        assists: number;
+        headshots: number;
+        damage: number;
+        mvps: number;
+        matchesPlayed: number;
+        matchesWon: number;
+        total5ks: number;
+        total4ks: number;
+        total3ks: number;
+        seenMatches: Set<string>;
+      }> = {};
+      
+      for (const match of monthlyMatches) {
+        const stats = await storage.getMatchStats(match.id);
+        
+        for (const stat of stats) {
+          if (!playerStats[stat.userId]) {
+            playerStats[stat.userId] = {
+              userId: stat.userId,
+              kills: 0,
+              deaths: 0,
+              assists: 0,
+              headshots: 0,
+              damage: 0,
+              mvps: 0,
+              matchesPlayed: 0,
+              matchesWon: 0,
+              total5ks: 0,
+              total4ks: 0,
+              total3ks: 0,
+              seenMatches: new Set(),
+            };
+          }
+          
+          const ps = playerStats[stat.userId];
+          ps.kills += stat.kills;
+          ps.deaths += stat.deaths;
+          ps.assists += stat.assists;
+          ps.headshots += stat.headshots;
+          ps.damage += stat.damage;
+          ps.mvps += stat.mvps;
+          ps.total5ks += stat.enemy5ks;
+          ps.total4ks += stat.enemy4ks;
+          ps.total3ks += stat.enemy3ks;
+          
+          // Count match only once per player (deduplicate by matchId)
+          if (!ps.seenMatches.has(match.id)) {
+            ps.seenMatches.add(match.id);
+            ps.matchesPlayed += 1;
+            
+            // Check if player won this match
+            const isTeam1 = stat.team?.toLowerCase().includes('ct') || stat.team === 'team1';
+            const team1Won = match.team1Score > match.team2Score;
+            if ((isTeam1 && team1Won) || (!isTeam1 && !team1Won)) {
+              ps.matchesWon += 1;
+            }
+          }
+        }
+      }
+      
+      // Combine with user data (remove seenMatches Set before sending)
+      const result = Object.values(playerStats).map(ps => {
+        const user = userMap.get(ps.userId);
+        const { seenMatches, ...statsWithoutSet } = ps;
+        return {
+          ...statsWithoutSet,
+          user: user ? {
+            id: user.id,
+            nickname: user.nickname,
+            firstName: user.firstName,
+            email: user.email,
+            profileImageUrl: user.profileImageUrl,
+            steamId64: user.steamId64,
+          } : null,
+        };
+      }).filter(p => p.user !== null);
+      
+      res.json({
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+        monthName: now.toLocaleString('pt-BR', { month: 'long' }),
+        players: result,
+      });
+    } catch (error) {
+      console.error("Error fetching monthly stats:", error);
+      res.status(500).json({ message: "Failed to fetch monthly stats" });
+    }
+  });
+
   // Merge two users (admin only)
   app.post('/api/users/merge', isAuthenticated, async (req: any, res) => {
     try {

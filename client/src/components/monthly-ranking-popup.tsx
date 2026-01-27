@@ -8,16 +8,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Users, Calendar, ArrowRight } from "lucide-react";
+import { Calendar, Trophy, TrendingUp, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
 
-export function ChampionshipPopup() {
+export function MonthlyRankingPopup() {
   const [open, setOpen] = useState(false);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Show after monthly ranking popup (delayed by 14 seconds)
-    const timer = setTimeout(() => setOpen(true), 14000);
+    // Show after server cost popup closes (delayed by 8 seconds)
+    const timer = setTimeout(() => setOpen(true), 8000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -25,71 +25,73 @@ export function ChampionshipPopup() {
     setOpen(false);
   };
 
-  const handleGoToRegistration = () => {
+  const handleGoToRanking = () => {
     handleClose();
-    setLocation("/campeonato");
+    setLocation("/ranking-mensal");
   };
+
+  const currentMonth = new Date().toLocaleString('pt-BR', { month: 'long' });
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Trophy className="h-6 w-6 text-yellow-500" />
-            Campeonato Inimigos da Bala
+            <Calendar className="h-6 w-6 text-primary" />
+            Ranking Mensal
           </DialogTitle>
           <DialogDescription>
-            O primeiro campeonato oficial da comunidade está chegando!
+            Confira quem está dominando neste mês!
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <div className="text-center">
-            <Badge variant="secondary" className="text-lg px-4 py-1 mb-4">
-              Em Preparação
+            <Badge variant="default" className="text-lg px-4 py-1 mb-4 capitalize">
+              {currentMonth}
             </Badge>
           </div>
           
           <p className="text-sm text-muted-foreground text-center">
-            Estamos preparando o primeiro campeonato competitivo 5v5 da comunidade. 
-            Demonstre seu interesse e seja notificado quando tivermos mais detalhes!
+            O ranking mensal mostra o desempenho dos jogadores apenas no mês atual. 
+            Todos os dados são zerados automaticamente quando o mês vira!
           </p>
           
           <div className="grid grid-cols-3 gap-2 py-2">
             <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
-              <Users className="h-6 w-6 text-primary mb-1" />
-              <span className="text-xs font-medium">5v5</span>
+              <Trophy className="h-6 w-6 text-yellow-500 mb-1" />
+              <span className="text-xs font-medium">Top K/D</span>
+            </div>
+            <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+              <TrendingUp className="h-6 w-6 text-green-500 mb-1" />
+              <span className="text-xs font-medium">Win Rate</span>
             </div>
             <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
               <Calendar className="h-6 w-6 text-primary mb-1" />
-              <span className="text-xs font-medium">Em breve</span>
-            </div>
-            <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
-              <Trophy className="h-6 w-6 text-yellow-500 mb-1" />
-              <span className="text-xs font-medium">Prêmios</span>
+              <span className="text-xs font-medium">Atualizado</span>
             </div>
           </div>
           
           <p className="text-xs text-center text-muted-foreground">
-            Garanta sua vaga! As inscrições estão abertas.
+            Veja sua posição e compare com os outros jogadores da comunidade.
           </p>
         </div>
         
         <div className="flex flex-col gap-2">
           <Button 
-            onClick={handleGoToRegistration} 
+            onClick={handleGoToRanking} 
             className="w-full"
-            data-testid="button-go-to-championship"
+            data-testid="button-go-to-monthly-ranking"
           >
-            <Trophy className="h-4 w-4 mr-2" />
-            Quero Participar
+            <Calendar className="h-4 w-4 mr-2" />
+            Ver Ranking Mensal
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
           <Button 
             variant="ghost" 
             onClick={handleClose}
             className="w-full"
-            data-testid="button-close-championship-popup"
+            data-testid="button-close-monthly-ranking-popup"
           >
             Agora não
           </Button>

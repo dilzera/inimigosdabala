@@ -43,6 +43,7 @@ import {
   Check,
   AlertTriangle,
   Skull,
+  Calendar,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -215,6 +216,19 @@ export function AppSidebar() {
                   <Link href="/piores-jogadores">
                     <Skull className="h-4 w-4" />
                     <span>Piores Jogadores</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/ranking-mensal"}
+                  data-testid="nav-ranking-mensal"
+                >
+                  <Link href="/ranking-mensal">
+                    <Calendar className="h-4 w-4" />
+                    <span>Ranking Mensal</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -33,9 +33,12 @@ import MapasMaisJogados from "@/pages/mapas-mais-jogados";
 import Jogadores from "@/pages/jogadores";
 import Campeonato from "@/pages/campeonato";
 import AdminCampeonato from "@/pages/admin-campeonato";
+import RankingMensal from "@/pages/ranking-mensal";
 import { ServerCostPopup } from "@/components/server-cost-popup";
 import { AcePopup } from "@/components/ace-popup";
 import { ChampionshipPopup } from "@/components/championship-popup";
+import { MonthlyRankingPopup } from "@/components/monthly-ranking-popup";
+import { ProfileUpdatePopup } from "@/components/profile-update-popup";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
@@ -71,6 +74,7 @@ function Router() {
       <Route path="/jogadores" component={Jogadores} />
       <Route path="/rankings" component={Rankings} />
       <Route path="/piores-jogadores" component={PioresJogadores} />
+      <Route path="/ranking-mensal" component={RankingMensal} />
       <Route path="/jogador/:id" component={PerfilJogador} />
       <Route path="/comparar-jogadores" component={CompararJogadores} />
       <Route path="/servidor/comandos" component={ServidorComandos} />
@@ -140,6 +144,8 @@ function AppContent() {
       <ServerCostPopup />
       <AcePopup />
       <ChampionshipPopup />
+      <MonthlyRankingPopup />
+      <ProfileUpdatePopup />
     </AuthenticatedLayout>
   );
 }

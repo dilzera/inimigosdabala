@@ -29,10 +29,11 @@ export function AcePopup() {
   useEffect(() => {
     if (!latestAcePlayer) return;
     
+    // Show after championship popup (delayed by 20 seconds)
     const timer = setTimeout(() => {
       setOpen(true);
       setShowConfetti(true);
-    }, 4500);
+    }, 20000);
     return () => clearTimeout(timer);
   }, [latestAcePlayer]);
 
