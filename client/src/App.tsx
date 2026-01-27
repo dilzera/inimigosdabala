@@ -34,6 +34,7 @@ import Jogadores from "@/pages/jogadores";
 import Campeonato from "@/pages/campeonato";
 import AdminCampeonato from "@/pages/admin-campeonato";
 import RankingMensal from "@/pages/ranking-mensal";
+import MixVetoMapas from "@/pages/mix-veto-mapas";
 import { ServerCostPopup } from "@/components/server-cost-popup";
 import { AcePopup } from "@/components/ace-popup";
 import { ChampionshipPopup } from "@/components/championship-popup";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/" component={user?.isAdmin ? AdminDashboard : Dashboard} />
       <Route path="/perfil" component={Perfil} />
       <Route path="/mix/escolher-time" component={MixEscolherTime} />
+      <Route path="/mix/veto-mapas" component={MixVetoMapas} />
       <Route path="/jogadores" component={Jogadores} />
       <Route path="/rankings" component={Rankings} />
       <Route path="/piores-jogadores" component={PioresJogadores} />

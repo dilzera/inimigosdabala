@@ -44,6 +44,9 @@ import {
   AlertTriangle,
   Skull,
   Calendar,
+  BarChart3,
+  UserCheck,
+  Vote,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -163,6 +166,18 @@ export function AppSidebar() {
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/mix/veto-mapas"}
+                          data-testid="nav-veto-mapas"
+                        >
+                          <Link href="/mix/veto-mapas">
+                            <Vote className="h-4 w-4" />
+                            <span>Veto de Mapas</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -181,70 +196,97 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/jogadores"}
-                  data-testid="nav-jogadores"
-                >
-                  <Link href="/jogadores">
-                    <Users className="h-4 w-4" />
-                    <span>Jogadores</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton data-testid="nav-players">
+                      <UserCheck className="h-4 w-4" />
+                      <span>Players</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/jogadores"}
+                          data-testid="nav-jogadores"
+                        >
+                          <Link href="/jogadores">
+                            <Users className="h-4 w-4" />
+                            <span>Lista de Jogadores Ativos</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/comparar-jogadores"}
+                          data-testid="nav-comparar-jogadores"
+                        >
+                          <Link href="/comparar-jogadores">
+                            <BarChart3 className="h-4 w-4" />
+                            <span>Comparar Players</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/rankings"}
-                  data-testid="nav-rankings"
-                >
-                  <Link href="/rankings">
-                    <Trophy className="h-4 w-4" />
-                    <span>Melhores Jogadores</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/piores-jogadores"}
-                  data-testid="nav-piores-jogadores"
-                >
-                  <Link href="/piores-jogadores">
-                    <Skull className="h-4 w-4" />
-                    <span>Piores Jogadores</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/ranking-mensal"}
-                  data-testid="nav-ranking-mensal"
-                >
-                  <Link href="/ranking-mensal">
-                    <Calendar className="h-4 w-4" />
-                    <span>Ranking Mensal</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/comparar-jogadores"}
-                  data-testid="nav-comparar-jogadores"
-                >
-                  <Link href="/comparar-jogadores">
-                    <Users className="h-4 w-4" />
-                    <span>Comparar Players</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <Collapsible className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton data-testid="nav-rankings">
+                      <Trophy className="h-4 w-4" />
+                      <span>Rankings</span>
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/rankings"}
+                          data-testid="nav-melhores-jogadores"
+                        >
+                          <Link href="/rankings">
+                            <Trophy className="h-4 w-4" />
+                            <span>Melhores Jogadores</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/piores-jogadores"}
+                          data-testid="nav-piores-jogadores"
+                        >
+                          <Link href="/piores-jogadores">
+                            <Skull className="h-4 w-4" />
+                            <span>Piores Jogadores</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === "/ranking-mensal"}
+                          data-testid="nav-ranking-mensal"
+                        >
+                          <Link href="/ranking-mensal">
+                            <Calendar className="h-4 w-4" />
+                            <span>Ranking Mensal</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
               <Collapsible className="group/collapsible">
                 <SidebarMenuItem>

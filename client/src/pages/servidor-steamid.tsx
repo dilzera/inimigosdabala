@@ -21,9 +21,9 @@ export default function ServidorSteamId() {
 
   const passos = [
     {
-      titulo: "Acesse o site Steam ID Finder",
-      descricao: "Vá para steamidfinder.com ou outro site de busca de Steam ID",
-      link: "https://steamidfinder.com",
+      titulo: "Acesse o site SteamDB Calculator",
+      descricao: "Vá para steamdb.info/calculator/ para converter seu perfil",
+      link: "https://steamdb.info/calculator/",
     },
     {
       titulo: "Cole o link do seu perfil",
@@ -31,11 +31,11 @@ export default function ServidorSteamId() {
     },
     {
       titulo: "Clique em buscar",
-      descricao: "O site vai mostrar todos os seus IDs Steam",
+      descricao: "O site vai converter e mostrar seu SteamID64",
     },
     {
       titulo: "Copie o SteamID64",
-      descricao: "Procure pelo campo 'steamID64' - é um número com 17 dígitos",
+      descricao: "O SteamID64 é um número com 17 dígitos mostrado nos resultados",
     },
   ];
 
