@@ -55,6 +55,8 @@ The sidebar navigation includes the following sections:
 - `/servidor/skins` - Skin guide
 - `/servidor/steamid` - SteamID64 guide
 - `/patrocinadores` - Sponsors page
+- `/cassino/apostas` - Virtual betting on player stats
+- `/cassino/jogos` - Case opening and slot machine games
 - `/partidas/minhas` - User's matches
 - `/partidas/todas` - All matches
 - `/admin/users` - Admin user management
@@ -101,7 +103,7 @@ The sidebar navigation includes the following sections:
 - Schema-first approach with TypeScript types generated from Drizzle schema definitions
 
 **Data Model**
-The application uses four main tables:
+The application uses the following main tables:
 1. **sessions** - Express session storage for authentication state
 2. **users** - Player profiles with SteamID64 and aggregated CS stats including:
    - Basic combat stats (kills, deaths, assists, headshots, damage)
@@ -113,6 +115,10 @@ The application uses four main tables:
    - Accuracy stats (shots fired, shots on target)
 3. **matches** - Individual match records (map, scores, date, external match ID)
 4. **matchStats** - Per-player statistics for each match including all 30+ detailed stat fields from CS2 server CSV
+5. **casinoBalances** - Virtual currency balances for casino system (starts at R$10M)
+6. **bets** - Player betting records with target player, amounts, odds, and status
+7. **betItems** - Individual bet conditions (kills over/under, K/D, headshots, etc.)
+8. **casinoTransactions** - Transaction history for balance changes (bets, wins, games)
 
 **Authentication & Authorization**
 - Replit OpenID Connect integration using openid-client and Passport.js
@@ -133,8 +139,13 @@ The application uses four main tables:
 - `DELETE /api/users/:id` - Delete user (admin only)
 - `GET /api/matches` - Get all matches
 - `GET /api/users/:id/matches` - Get user's match stats
-- `POST /api/matches/import` - Import CSV match data from CS2 server (admin only)
+- `POST /api/matches/import` - Import CSV match data from CS2 server (admin only, also resolves pending bets)
 - `POST /api/users/link-steam` - Link SteamID64 to user account
+- `GET /api/casino/balance` - Get user's virtual currency balance
+- `GET /api/casino/bets` - Get user's betting history
+- `POST /api/casino/bet` - Place a bet on a player's stats
+- `POST /api/casino/slot` - Play the tigrinho slot machine (10% win rate, 2x-50x multipliers)
+- `POST /api/casino/case` - Open a case (6 rarity tiers: consumidor to faca/luva)
 
 **CSV Import System**
 - Admin-only feature for importing match data from CS2 server CSV exports
