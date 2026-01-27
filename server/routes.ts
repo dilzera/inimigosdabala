@@ -1004,5 +1004,409 @@ export async function registerRoutes(
     }
   });
 
+  // ============ CASINO ROUTES ============
+
+  // Get user's casino balance
+  app.get('/api/casino/balance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const balance = await storage.getOrCreateCasinoBalance(userId);
+      res.json(balance);
+    } catch (error) {
+      console.error("Error getting casino balance:", error);
+      res.status(500).json({ message: "Failed to get balance" });
+    }
+  });
+
+  // Get user's casino transactions
+  app.get('/api/casino/transactions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const transactions = await storage.getCasinoTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error getting transactions:", error);
+      res.status(500).json({ message: "Failed to get transactions" });
+    }
+  });
+
+  // Get user's bets
+  app.get('/api/casino/bets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userBets = await storage.getUserBets(userId);
+      res.json(userBets);
+    } catch (error) {
+      console.error("Error getting bets:", error);
+      res.status(500).json({ message: "Failed to get bets" });
+    }
+  });
+
+  // Calculate odds for a player bet
+  app.post('/api/casino/calculate-odds', isAuthenticated, async (req: any, res) => {
+    try {
+      const { targetPlayerId, items } = req.body;
+      
+      const targetPlayer = await storage.getUser(targetPlayerId);
+      if (!targetPlayer) {
+        return res.status(404).json({ message: "Jogador não encontrado" });
+      }
+
+      // Calculate odds based on player's historical stats
+      const totalMatches = targetPlayer.totalMatches || 1;
+      const avgKills = (targetPlayer.totalKills || 0) / totalMatches;
+      const avgDeaths = (targetPlayer.totalDeaths || 0) / totalMatches;
+      const avgKD = avgDeaths > 0 ? avgKills / avgDeaths : avgKills;
+      const avgHeadshots = (targetPlayer.totalHeadshots || 0) / totalMatches;
+      const avgMvps = (targetPlayer.totalMvps || 0) / totalMatches;
+      const avgDamage = (targetPlayer.totalDamage || 0) / totalMatches;
+      const winRate = totalMatches > 0 ? ((targetPlayer.matchesWon || 0) / totalMatches) * 100 : 50;
+
+      const calculatedItems = items.map((item: { betType: string; targetValue: number }) => {
+        let odds = 1.5; // Base odds
+        
+        switch (item.betType) {
+          case 'kills_over':
+            // Higher target = higher odds, based on how far from average
+            const killsDiff = item.targetValue - avgKills;
+            odds = Math.max(1.1, 1.5 + (killsDiff * 0.15));
+            break;
+          case 'kills_under':
+            const killsUnderDiff = avgKills - item.targetValue;
+            odds = Math.max(1.1, 1.5 + (killsUnderDiff * 0.15));
+            break;
+          case 'deaths_under':
+            const deathsDiff = avgDeaths - item.targetValue;
+            odds = Math.max(1.1, 1.5 + (deathsDiff * 0.2));
+            break;
+          case 'kd_over':
+            const kdDiff = item.targetValue - avgKD;
+            odds = Math.max(1.1, 1.5 + (kdDiff * 0.5));
+            break;
+          case 'headshots_over':
+            const hsDiff = item.targetValue - avgHeadshots;
+            odds = Math.max(1.1, 1.5 + (hsDiff * 0.1));
+            break;
+          case 'mvps_over':
+            const mvpDiff = item.targetValue - avgMvps;
+            odds = Math.max(1.1, 2.0 + (mvpDiff * 0.8));
+            break;
+          case 'damage_over':
+            const dmgDiff = (item.targetValue - avgDamage) / 100;
+            odds = Math.max(1.1, 1.5 + (dmgDiff * 0.3));
+            break;
+          case 'win':
+            // Based on win rate
+            odds = winRate > 50 ? Math.max(1.1, 1.5 + ((100 - winRate) / 50)) : Math.max(1.1, 1.5 + (winRate / 50));
+            break;
+        }
+
+        return {
+          ...item,
+          odds: Math.round(odds * 100) / 100, // Round to 2 decimal places
+        };
+      });
+
+      res.json({
+        player: {
+          id: targetPlayer.id,
+          nickname: targetPlayer.nickname || targetPlayer.firstName,
+          avgKills: Math.round(avgKills * 10) / 10,
+          avgKD: Math.round(avgKD * 100) / 100,
+          avgHeadshots: Math.round(avgHeadshots * 10) / 10,
+          winRate: Math.round(winRate),
+        },
+        items: calculatedItems,
+        totalOdds: Math.round(calculatedItems.reduce((acc: number, item: any) => acc * item.odds, 1) * 100) / 100,
+      });
+    } catch (error) {
+      console.error("Error calculating odds:", error);
+      res.status(500).json({ message: "Failed to calculate odds" });
+    }
+  });
+
+  // Place a bet
+  app.post('/api/casino/bets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { targetPlayerId, amount, items } = req.body;
+
+      // Validate minimum bet
+      if (amount < 10) {
+        return res.status(400).json({ message: "Aposta mínima é R$10" });
+      }
+
+      // Can't bet on yourself
+      if (targetPlayerId === userId) {
+        return res.status(400).json({ message: "Você não pode apostar em você mesmo!" });
+      }
+
+      // Check if player exists
+      const targetPlayer = await storage.getUser(targetPlayerId);
+      if (!targetPlayer) {
+        return res.status(404).json({ message: "Jogador não encontrado" });
+      }
+
+      // Calculate odds for each item
+      const totalMatches = targetPlayer.totalMatches || 1;
+      const avgKills = (targetPlayer.totalKills || 0) / totalMatches;
+      const avgDeaths = (targetPlayer.totalDeaths || 0) / totalMatches;
+      const avgKD = avgDeaths > 0 ? avgKills / avgDeaths : avgKills;
+      const avgHeadshots = (targetPlayer.totalHeadshots || 0) / totalMatches;
+      const avgMvps = (targetPlayer.totalMvps || 0) / totalMatches;
+      const avgDamage = (targetPlayer.totalDamage || 0) / totalMatches;
+      const winRate = totalMatches > 0 ? ((targetPlayer.matchesWon || 0) / totalMatches) * 100 : 50;
+
+      const itemsWithOdds = items.map((item: { betType: string; targetValue: number }) => {
+        let odds = 1.5;
+        
+        switch (item.betType) {
+          case 'kills_over':
+            odds = Math.max(1.1, 1.5 + ((item.targetValue - avgKills) * 0.15));
+            break;
+          case 'kills_under':
+            odds = Math.max(1.1, 1.5 + ((avgKills - item.targetValue) * 0.15));
+            break;
+          case 'deaths_under':
+            odds = Math.max(1.1, 1.5 + ((avgDeaths - item.targetValue) * 0.2));
+            break;
+          case 'kd_over':
+            odds = Math.max(1.1, 1.5 + ((item.targetValue - avgKD) * 0.5));
+            break;
+          case 'headshots_over':
+            odds = Math.max(1.1, 1.5 + ((item.targetValue - avgHeadshots) * 0.1));
+            break;
+          case 'mvps_over':
+            odds = Math.max(1.1, 2.0 + ((item.targetValue - avgMvps) * 0.8));
+            break;
+          case 'damage_over':
+            odds = Math.max(1.1, 1.5 + (((item.targetValue - avgDamage) / 100) * 0.3));
+            break;
+          case 'win':
+            odds = winRate > 50 ? Math.max(1.1, 1.5 + ((100 - winRate) / 50)) : Math.max(1.1, 1.5 + (winRate / 50));
+            break;
+        }
+
+        return {
+          ...item,
+          odds: Math.round(odds * 100) / 100,
+        };
+      });
+
+      const bet = await storage.createBet(userId, targetPlayerId, amount, itemsWithOdds);
+      
+      if (!bet) {
+        return res.status(400).json({ message: "Saldo insuficiente para essa aposta" });
+      }
+
+      res.json(bet);
+    } catch (error) {
+      console.error("Error placing bet:", error);
+      res.status(500).json({ message: "Erro ao registrar aposta" });
+    }
+  });
+
+  // Play slot machine (Tigrinho)
+  app.post('/api/casino/slot', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { amount } = req.body;
+
+      if (amount < 10) {
+        return res.status(400).json({ message: "Aposta mínima é R$10" });
+      }
+
+      // Check balance and deduct bet
+      const balance = await storage.getOrCreateCasinoBalance(userId);
+      if (balance.balance < amount) {
+        return res.status(400).json({ message: "Saldo insuficiente" });
+      }
+
+      // 10% chance to win
+      const won = Math.random() < 0.10;
+      
+      let multiplier = 0;
+      let result = 'lost';
+      
+      if (won) {
+        // Random multiplier between 2x and 50x
+        multiplier = Math.random() < 0.8 
+          ? 2 + Math.random() * 8  // 80% chance: 2x-10x
+          : 10 + Math.random() * 40; // 20% chance: 10x-50x
+        multiplier = Math.round(multiplier * 10) / 10;
+        result = 'won';
+      }
+
+      const winnings = won ? amount * multiplier : 0;
+      const netResult = winnings - amount;
+
+      // Update balance
+      await storage.updateCasinoBalance(
+        userId, 
+        netResult, 
+        won ? 'slot_win' : 'slot_loss',
+        won ? `Tigrinho: Ganhou ${multiplier}x! (R$${winnings.toLocaleString('pt-BR')})` : `Tigrinho: Perdeu R$${amount.toLocaleString('pt-BR')}`
+      );
+
+      // Get updated balance
+      const newBalance = await storage.getCasinoBalance(userId);
+
+      res.json({
+        won,
+        multiplier,
+        betAmount: amount,
+        winnings,
+        newBalance: newBalance?.balance || 0,
+        symbols: generateSlotSymbols(won), // Visual symbols for frontend
+      });
+    } catch (error) {
+      console.error("Error playing slot:", error);
+      res.status(500).json({ message: "Erro no jogo" });
+    }
+  });
+
+  // Open case (CS:GO case simulation)
+  app.post('/api/casino/case', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { caseType } = req.body;
+
+      // Case prices
+      const casePrices: Record<string, number> = {
+        'basic': 5000,
+        'premium': 25000,
+        'elite': 100000,
+        'legendary': 500000,
+      };
+
+      const price = casePrices[caseType] || casePrices.basic;
+
+      // Check balance
+      const balance = await storage.getOrCreateCasinoBalance(userId);
+      if (balance.balance < price) {
+        return res.status(400).json({ message: "Saldo insuficiente para abrir essa caixa" });
+      }
+
+      // Generate random item with weighted rarity
+      const roll = Math.random() * 100;
+      let rarity: string;
+      let multiplier: number;
+      
+      if (roll < 60) {
+        rarity = 'Consumidor'; // 60%
+        multiplier = 0.1 + Math.random() * 0.4; // 0.1x - 0.5x
+      } else if (roll < 85) {
+        rarity = 'Industrial'; // 25%
+        multiplier = 0.5 + Math.random() * 0.5; // 0.5x - 1.0x
+      } else if (roll < 95) {
+        rarity = 'Militar'; // 10%
+        multiplier = 1.0 + Math.random() * 2.0; // 1.0x - 3.0x
+      } else if (roll < 99) {
+        rarity = 'Restrito'; // 4%
+        multiplier = 3.0 + Math.random() * 7.0; // 3.0x - 10.0x
+      } else if (roll < 99.8) {
+        rarity = 'Secreto'; // 0.8%
+        multiplier = 10.0 + Math.random() * 40.0; // 10x - 50x
+      } else {
+        rarity = 'Faca/Luva'; // 0.2%
+        multiplier = 50.0 + Math.random() * 150.0; // 50x - 200x
+      }
+
+      multiplier = Math.round(multiplier * 100) / 100;
+      const value = Math.round(price * multiplier);
+      const netResult = value - price;
+
+      // Generate random skin name
+      const skins = generateRandomSkin(rarity);
+
+      // Update balance
+      await storage.updateCasinoBalance(
+        userId,
+        netResult,
+        'case_opening',
+        `Caixa ${caseType}: ${skins.name} (${rarity}) - R$${value.toLocaleString('pt-BR')}`
+      );
+
+      const newBalance = await storage.getCasinoBalance(userId);
+
+      res.json({
+        item: {
+          name: skins.name,
+          rarity,
+          value,
+          multiplier,
+          weapon: skins.weapon,
+          skin: skins.skin,
+        },
+        casePrice: price,
+        profit: netResult,
+        newBalance: newBalance?.balance || 0,
+      });
+    } catch (error) {
+      console.error("Error opening case:", error);
+      res.status(500).json({ message: "Erro ao abrir caixa" });
+    }
+  });
+
   return httpServer;
+}
+
+// Helper function to generate slot symbols
+function generateSlotSymbols(won: boolean): string[][] {
+  const symbols = ['🐯', '💎', '7️⃣', '🍀', '⭐', '🔔', '🍒', '🍋'];
+  
+  if (won) {
+    // Winning combination - at least one row matches
+    const winSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+    const winRow = Math.floor(Math.random() * 3);
+    return Array(3).fill(null).map((_, row) => {
+      if (row === winRow) {
+        return [winSymbol, winSymbol, winSymbol];
+      }
+      return Array(3).fill(null).map(() => symbols[Math.floor(Math.random() * symbols.length)]);
+    });
+  } else {
+    // Losing combination - no matching rows
+    return Array(3).fill(null).map(() => {
+      const row = Array(3).fill(null).map(() => symbols[Math.floor(Math.random() * symbols.length)]);
+      // Ensure no three in a row
+      if (row[0] === row[1] && row[1] === row[2]) {
+        row[2] = symbols[(symbols.indexOf(row[2]) + 1) % symbols.length];
+      }
+      return row;
+    });
+  }
+}
+
+// Helper function to generate random CS:GO-style skin
+function generateRandomSkin(rarity: string): { name: string; weapon: string; skin: string } {
+  const weapons: Record<string, string[]> = {
+    'Consumidor': ['P250', 'MAG-7', 'PP-Bizon', 'Sawed-Off', 'Nova'],
+    'Industrial': ['Galil AR', 'FAMAS', 'MAC-10', 'MP7', 'UMP-45'],
+    'Militar': ['M4A4', 'AK-47', 'AWP', 'Desert Eagle', 'USP-S'],
+    'Restrito': ['M4A1-S', 'AK-47', 'AWP', 'Glock-18', 'Five-SeveN'],
+    'Secreto': ['AK-47', 'M4A4', 'AWP', 'Desert Eagle', 'USP-S'],
+    'Faca/Luva': ['Karambit', 'Butterfly Knife', 'M9 Bayonet', 'Skeleton Knife', 'Talon Knife'],
+  };
+
+  const skins: Record<string, string[]> = {
+    'Consumidor': ['Sand Dune', 'Safari Mesh', 'Groundwater', 'Forest DDPAT', 'Urban DDPAT'],
+    'Industrial': ['Blue Steel', 'Stainless', 'Urban Masked', 'Jungle Tiger', 'Predator'],
+    'Militar': ['Redline', 'Asiimov', 'Hyper Beast', 'Vulcan', 'Kill Confirmed'],
+    'Restrito': ['Neo-Noir', 'Printstream', 'The Prince', 'Fade', 'Fire Serpent'],
+    'Secreto': ['Dragon Lore', 'Howl', 'Medusa', 'Gungnir', 'The Empress'],
+    'Faca/Luva': ['Doppler', 'Fade', 'Marble Fade', 'Tiger Tooth', 'Crimson Web'],
+  };
+
+  const weaponList = weapons[rarity] || weapons['Consumidor'];
+  const skinList = skins[rarity] || skins['Consumidor'];
+  
+  const weapon = weaponList[Math.floor(Math.random() * weaponList.length)];
+  const skin = skinList[Math.floor(Math.random() * skinList.length)];
+  
+  return {
+    name: `${weapon} | ${skin}`,
+    weapon,
+    skin,
+  };
 }
