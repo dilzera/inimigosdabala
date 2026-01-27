@@ -1,0 +1,218 @@
+em links, altere o link copiável do discord para https://discord.gg/cdztkmT3
+
+em Servidor, em comandos do servidor, atualize para:
+
+Comandos do Modo 5x5
+Todos os comandos abaixo devem ser digitados no chat dentro do servidor.
+
+Comando
+Descrição
+.ready
+
+Marca o jogador como pronto
+
+.unready
+
+Marca o jogador como não pronto
+
+.stay
+
+Permanece no mesmo lado (para o vencedor da faca)
+
+.switch ou .swap
+
+Troca de lado (para o vencedor da faca)
+
+.rtv
+
+Abre uma votação para troca do mapa
+
+
+
+Comandos Administrativos
+Esta seção reúne os principais comandos utilizados por administradores nos servidores privados. Eles são essenciais para o controle de partidas, troca de modos e moderação de jogadores.
+
+Comandos Gerais
+Comando
+Função
+!modes
+
+Abre o menu para selecionar o modo de jogo (ex: Mix, Retake, Deathmatch)
+
+!maps
+
+Exibe o menu de mapas disponíveis com base no modo selecionado
+
+!allspec
+
+Move todos os jogadores para a equipe de Espectadores
+
+Moderação de Jogadores
+Expulsar jogador (kick):
+
+
+Copiar
+!kick <nome_do_jogador>
+Banir jogador (ban):
+
+
+Copiar
+!ban <nome_do_jogador>
+Banimento via painel web
+Caso o comando no servidor não funcione corretamente, siga os passos abaixo para banir manualmente pelo painel:
+
+Acesse o perfil do jogador e copie o link da Steam.
+
+Vá até: https://steamdb.info/calculator/
+
+Cole o link do perfil para converter e obter o SteamID64.
+
+No painel web do servidor, utilize o comando no console:
+
+Banir jogador:
+
+
+Copiar
+css_ban <STEAMID64>
+Exemplo:
+
+
+Copiar
+css_ban 76561197960690195
+Remover banimento:
+
+
+Copiar
+css_unban <STEAMID64>
+Exemplo:
+
+
+Copiar
+css_unban 76561197960690195
+
+
+Modo Competitivo
+Todos os comandos abaixo devem ser digitados no chat dentro do servidor.
+
+Comandos Gerais
+Comando
+Função
+!modes
+
+Abre o menu para selecionar o modo de jogo
+Selecione o modo: Competitivo
+
+!maps
+
+Exibe o menu de mapas disponíveis com base no modo selecionado
+
+!allspec
+
+Move todos os jogadores para a equipe de Espectadores
+
+Comandos do Modo Competitivo
+
+Comando
+Função
+.ready
+
+Marca o jogador como pronto
+
+.unready
+
+Marca o jogador como não pronto
+
+.pause ou .tech
+
+Pausa a partida no tempo de congelamento
+
+.unpause
+
+Solicita a remoção do pause da partida. Ambos os times precisam usar esse comando
+
+.stay
+
+Mantém o time vencedor da faca no mesmo lado
+
+.switch ou .swap
+
+Alterna o lado do time vencedor da faca
+
+.stop
+
+Restaura o backup da rodada atual (ambos os times precisam usar)
+
+.tac
+
+Inicia uma pausa tática
+
+.coach t ou .coach ct
+
+Define o treinador para o lado especificado
+
+Comandos Administrativos
+Comando
+Função
+.start
+
+Força o início da partida
+
+.restart
+
+Reinicia a partida
+
+.forcepause ou .fp
+
+Pausa a partida como administrador (jogadores não podem despausar)
+
+.forceunpause ou .fup
+
+Força a remoção do pause
+
+.restore <nº>
+
+Restaura o backup da rodada informada
+
+.roundknife ou .rk
+
+Ativa/desativa a rodada da faca
+
+.playout
+
+Ativa o modo scrim (todas as rodadas são jogadas, independente do resultado)
+
+.readyrequired <nº>
+
+Define o número mínimo de jogadores prontos para iniciar a partida
+
+.settings
+
+Exibe as configurações ativas do servidor
+
+.map <nome_do_mapa>
+
+Troca o mapa. Exemplo: .map de_mirage
+
+Mapas disponíveis:
+
+de_inferno, de_anubis, de_mirage, de_nuke, de_dust2, de_overpass, de_vertigo,
+de_ancient, de_thera, de_mills, de_train
+
+Outros Comandos
+Comando
+Função
+.asay <mensagem>
+
+Envia uma mensagem global como administrador
+
+.team1 <nome>
+
+Define o nome da Equipe 1 (CT)
+
+.team2 <nome>
+
+Define o nome da Equipe 2 (Terrorista)
+
+.rcon <comando>
+
+Envia um comando diretamente ao servidor

@@ -39,10 +39,10 @@ interface MonthlyStatsResponse {
   players: MonthlyPlayerStats[];
 }
 
-type SortField = "kd" | "kills" | "deaths" | "headshots" | "winrate" | "matches" | "mvps" | "alphabetical";
+type SortField = "skillRating" | "kd" | "kills" | "deaths" | "headshots" | "winrate" | "matches" | "mvps" | "alphabetical";
 
 export default function RankingMensal() {
-  const [sortField, setSortField] = useState<SortField>("kd");
+  const [sortField, setSortField] = useState<SortField>("skillRating");
   
   const { data, isLoading } = useQuery<MonthlyStatsResponse>({
     queryKey: ["/api/stats/monthly"],
@@ -64,9 +64,34 @@ export default function RankingMensal() {
   const getHsPercent = (p: MonthlyPlayerStats) => p.kills > 0 ? (p.headshots / p.kills) * 100 : 0;
   const getWinRate = (p: MonthlyPlayerStats) => p.matchesPlayed > 0 ? (p.matchesWon / p.matchesPlayed) * 100 : 0;
   const getPlayerName = (p: MonthlyPlayerStats) => p.user?.nickname || p.user?.firstName || p.user?.email || "Jogador";
+  
+  // Calculate Skill Rating based on the same formula used in rankings
+  const getSkillRating = (p: MonthlyPlayerStats) => {
+    const kd = getKd(p);
+    const hsPercent = getHsPercent(p);
+    const winRate = getWinRate(p);
+    // ADR calculation: damage / rounds (estimate rounds from matches * 24 average rounds)
+    const estimatedRounds = p.matchesPlayed * 24;
+    const adr = estimatedRounds > 0 ? p.damage / estimatedRounds : 0;
+    
+    let rating = 1000; // Base rating
+    rating += (kd - 1) * 150; // K/D factor
+    rating += (hsPercent - 30) * 2; // HS% factor
+    rating += (adr - 70) * 1.5; // ADR factor
+    rating += (winRate - 50) * 3; // Win rate factor
+    rating += p.mvps * 2; // MVP bonus
+    rating += p.total5ks * 30; // ACE bonus
+    rating += p.total4ks * 15; // 4K bonus
+    rating += p.total3ks * 5; // 3K bonus
+    
+    // Clamp between 100 and 3000
+    return Math.max(100, Math.min(3000, Math.round(rating)));
+  };
 
   const sortedPlayers = [...players].sort((a, b) => {
     switch (sortField) {
+      case "skillRating":
+        return getSkillRating(b) - getSkillRating(a);
       case "kd":
         return getKd(b) - getKd(a);
       case "kills":
@@ -88,10 +113,10 @@ export default function RankingMensal() {
     }
   });
 
+  const topBySkillRating = [...players].sort((a, b) => getSkillRating(b) - getSkillRating(a)).slice(0, 3);
   const topByKd = [...players].sort((a, b) => getKd(b) - getKd(a)).slice(0, 3);
   const topByKills = [...players].sort((a, b) => b.kills - a.kills).slice(0, 3);
   const topByWinRate = [...players].sort((a, b) => getWinRate(b) - getWinRate(a)).slice(0, 3);
-  const worstByKd = [...players].sort((a, b) => getKd(a) - getKd(b)).slice(0, 3);
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -178,6 +203,12 @@ export default function RankingMensal() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <TopCard
+          title="Melhor Skill Rating"
+          icon={<Star className="h-4 w-4 text-yellow-500" />}
+          players={topBySkillRating}
+          statFormatter={(p) => getSkillRating(p).toString()}
+        />
+        <TopCard
           title="Melhor K/D"
           icon={<Crosshair className="h-4 w-4 text-green-500" />}
           players={topByKd}
@@ -194,13 +225,6 @@ export default function RankingMensal() {
           icon={<Trophy className="h-4 w-4 text-yellow-500" />}
           players={topByWinRate}
           statFormatter={(p) => `${getWinRate(p).toFixed(1)}%`}
-        />
-        <TopCard
-          title="Pior K/D"
-          icon={<Skull className="h-4 w-4 text-red-500" />}
-          players={worstByKd}
-          statFormatter={(p) => getKd(p).toFixed(2)}
-          iconColor="text-red-500"
         />
       </div>
 
@@ -222,6 +246,7 @@ export default function RankingMensal() {
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="skillRating">Skill Rating</SelectItem>
                 <SelectItem value="kd">K/D Ratio</SelectItem>
                 <SelectItem value="kills">Kills</SelectItem>
                 <SelectItem value="deaths">Deaths</SelectItem>
@@ -248,6 +273,7 @@ export default function RankingMensal() {
                   <TableRow>
                     <TableHead className="w-12">#</TableHead>
                     <TableHead>Jogador</TableHead>
+                    <TableHead className="text-center">Rating</TableHead>
                     <TableHead className="text-center">Partidas</TableHead>
                     <TableHead className="text-center">K/D</TableHead>
                     <TableHead className="text-center">Kills</TableHead>
@@ -262,6 +288,7 @@ export default function RankingMensal() {
                     const kd = getKd(player);
                     const hsPercent = getHsPercent(player);
                     const winRate = getWinRate(player);
+                    const skillRating = getSkillRating(player);
                     
                     return (
                       <TableRow key={player.userId} data-testid={`row-monthly-${player.userId}`}>
@@ -283,6 +310,11 @@ export default function RankingMensal() {
                             </Avatar>
                             <span className="font-medium">{getPlayerName(player)}</span>
                           </Link>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="default" className="font-mono font-bold">
+                            {skillRating}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline">{player.matchesPlayed}</Badge>
