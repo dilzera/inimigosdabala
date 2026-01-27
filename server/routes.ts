@@ -164,6 +164,90 @@ export async function registerRoutes(
     }
   });
 
+  // Recalculate MVPs for all existing matches (admin only)
+  app.post('/api/admin/recalculate-mvps', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      // MVP calculation function
+      const calculateMVPScore = (stat: any): number => {
+        const kd = stat.deaths > 0 ? stat.kills / stat.deaths : stat.kills;
+        const hsPercent = stat.kills > 0 ? (stat.headshots / stat.kills) : 0;
+        
+        let score = 0;
+        score += stat.kills * 2;
+        score += stat.assists * 0.5;
+        score += kd * 5;
+        score += hsPercent * 10;
+        score += stat.damage * 0.01;
+        score += (stat.enemy5ks || 0) * 15;
+        score += (stat.enemy4ks || 0) * 10;
+        score += (stat.enemy3ks || 0) * 5;
+        score += (stat.enemy2ks || 0) * 2;
+        score += (stat.v1Wins || 0) * 8;
+        score += (stat.v2Wins || 0) * 12;
+        score += (stat.entryWins || 0) * 3;
+        score += (stat.utilityDamage || 0) * 0.02;
+        score += (stat.enemiesFlashed || 0) * 0.5;
+        
+        return score;
+      };
+
+      const allMatches = await storage.getAllMatches();
+      let matchesProcessed = 0;
+      let mvpsAssigned = 0;
+      const usersToRecalculate = new Set<string>();
+
+      for (const match of allMatches) {
+        const stats = await storage.getMatchStats(match.id);
+        
+        if (stats.length === 0) continue;
+
+        // Find the MVP
+        let mvpStatId: string | null = null;
+        let highestScore = -1;
+        
+        for (const stat of stats) {
+          const score = calculateMVPScore(stat);
+          if (score > highestScore) {
+            highestScore = score;
+            mvpStatId = stat.id;
+          }
+        }
+
+        // Update MVP for each player in this match
+        for (const stat of stats) {
+          const isMVP = stat.id === mvpStatId ? 1 : 0;
+          await storage.updateMatchStatsMvp(stat.id, isMVP);
+          usersToRecalculate.add(stat.userId);
+          if (isMVP === 1) mvpsAssigned++;
+        }
+        
+        matchesProcessed++;
+      }
+
+      // Recalculate user stats to update MVP totals
+      for (const id of Array.from(usersToRecalculate)) {
+        await storage.recalculateUserStats(id);
+      }
+
+      res.json({ 
+        message: `Recalculated MVPs for ${matchesProcessed} matches. ${mvpsAssigned} MVPs assigned. ${usersToRecalculate.size} user stats updated.`,
+        matchesProcessed,
+        mvpsAssigned,
+        usersUpdated: usersToRecalculate.size
+      });
+    } catch (error) {
+      console.error("Error recalculating MVPs:", error);
+      res.status(500).json({ message: "Failed to recalculate MVPs" });
+    }
+  });
+
   // Update current user profile (name, photo, steamId) - MUST be before /api/users/:id
   app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
     try {

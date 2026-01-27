@@ -59,6 +59,7 @@ export interface IStorage {
   getUserMatchStats(userId: string): Promise<MatchStats[]>;
   getUserMatchStatsWithMatches(userId: string): Promise<Array<{ stats: MatchStats; match: Match }>>;
   createMatchStats(stats: InsertMatchStats): Promise<MatchStats>;
+  updateMatchStatsMvp(id: string, mvpValue: number): Promise<MatchStats | undefined>;
   
   // Payment operations
   getAllPayments(): Promise<Payment[]>;
@@ -392,6 +393,15 @@ export class DatabaseStorage implements IStorage {
   async createMatchStats(stats: InsertMatchStats): Promise<MatchStats> {
     const [newStats] = await db.insert(matchStats).values(stats).returning();
     return newStats;
+  }
+
+  async updateMatchStatsMvp(id: string, mvpValue: number): Promise<MatchStats | undefined> {
+    const [updated] = await db
+      .update(matchStats)
+      .set({ mvps: mvpValue })
+      .where(eq(matchStats.id, id))
+      .returning();
+    return updated;
   }
 
   // Payment operations

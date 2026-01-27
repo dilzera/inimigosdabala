@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { FileUp, CheckCircle, AlertCircle, Upload, FileText, Info, Trophy, Users } from "lucide-react";
+import { FileUp, CheckCircle, AlertCircle, Upload, FileText, Info, Trophy, Users, Star, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
 
 interface DetectedTeam {
   name: string;
@@ -116,6 +117,34 @@ export default function AdminImport() {
           variant: "destructive",
         });
       }
+    },
+  });
+
+  const recalculateMvpsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/recalculate-mvps");
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw result;
+      }
+      
+      return result;
+    },
+    onSuccess: (data: { matchesProcessed: number; mvpsAssigned: number; usersUpdated: number }) => {
+      toast({
+        title: "MVPs Recalculados!",
+        description: `${data.matchesProcessed} partidas processadas, ${data.mvpsAssigned} MVPs atribuídos.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao Recalcular MVPs",
+        description: error.message || "Falha ao recalcular MVPs.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -436,6 +465,57 @@ export default function AdminImport() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Separator className="my-8" />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-amber-500" />
+            Recalcular MVPs
+          </CardTitle>
+          <CardDescription>
+            Recalcule os MVPs de todas as partidas anteriores baseado nas estatísticas dos jogadores.
+            Isso é útil se as partidas foram importadas antes da implementação do cálculo automático de MVP.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert className="mb-4">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Como funciona o cálculo de MVP</AlertTitle>
+            <AlertDescription className="text-sm space-y-2">
+              <p>O MVP é calculado usando uma fórmula que considera múltiplos fatores:</p>
+              <ul className="list-disc list-inside space-y-1 mt-2">
+                <li>Kills (2 pts), Assists (0.5 pts), K/D ratio (5 pts por ratio)</li>
+                <li>Headshot % (até 10 pts), Dano (0.01 pts por dano)</li>
+                <li>ACE (15 pts), 4K (10 pts), 3K (5 pts), 2K (2 pts)</li>
+                <li>Clutches 1v1 (8 pts), 1v2 (12 pts)</li>
+                <li>Entry Frags (3 pts), Dano de Utilidade (0.02 pts)</li>
+                <li>Inimigos Flashados (0.5 pts)</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+          
+          <Button 
+            onClick={() => recalculateMvpsMutation.mutate()}
+            disabled={recalculateMvpsMutation.isPending}
+            className="w-full sm:w-auto"
+            data-testid="button-recalculate-mvps"
+          >
+            {recalculateMvpsMutation.isPending ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Recalculando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Recalcular MVPs de Todas as Partidas
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
