@@ -98,6 +98,7 @@ export interface IStorage {
   getUserBets(userId: string): Promise<Array<Bet & { items: BetItem[], targetPlayer: User | null }>>;
   getPendingBetsForPlayer(targetPlayerId: string): Promise<Bet[]>;
   resolveBet(betId: string, matchStats: MatchStats, winnerTeam: string | null): Promise<Bet | undefined>;
+  deleteBet(betId: string, userId: string): Promise<{ success: boolean; refundAmount?: number }>;
   getCasinoTransactions(userId: string): Promise<CasinoTransaction[]>;
 }
 
@@ -836,6 +837,29 @@ export class DatabaseStorage implements IStorage {
     }
 
     return updatedBet;
+  }
+
+  async deleteBet(betId: string, userId: string): Promise<{ success: boolean; refundAmount?: number }> {
+    const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
+    
+    if (!bet) {
+      return { success: false };
+    }
+    
+    if (bet.userId !== userId) {
+      return { success: false };
+    }
+    
+    if (bet.status !== 'pending') {
+      return { success: false };
+    }
+    
+    await db.delete(betItems).where(eq(betItems.betId, betId));
+    await db.delete(bets).where(eq(bets.id, betId));
+    
+    await this.updateCasinoBalance(userId, bet.amount, 'bet_refund', `Aposta cancelada - Reembolso`);
+    
+    return { success: true, refundAmount: bet.amount };
   }
 
   async getCasinoTransactions(userId: string): Promise<CasinoTransaction[]> {

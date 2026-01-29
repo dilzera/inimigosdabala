@@ -1357,6 +1357,29 @@ export async function registerRoutes(
     }
   });
 
+  // Delete a pending bet
+  app.delete('/api/casino/bets/:betId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { betId } = req.params;
+
+      const result = await storage.deleteBet(betId, userId);
+      
+      if (!result.success) {
+        return res.status(400).json({ message: "Não foi possível cancelar a aposta. Apenas apostas pendentes podem ser canceladas." });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Aposta cancelada com sucesso!", 
+        refundAmount: result.refundAmount 
+      });
+    } catch (error) {
+      console.error("Error deleting bet:", error);
+      res.status(500).json({ message: "Erro ao cancelar aposta" });
+    }
+  });
+
   // Play slot machine (Tigrinho)
   app.post('/api/casino/slot', isAuthenticated, async (req: any, res) => {
     try {

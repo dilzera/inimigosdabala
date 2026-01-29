@@ -195,6 +195,28 @@ export default function Apostas() {
     },
   });
 
+  const deleteBetMutation = useMutation({
+    mutationFn: async (betId: string) => {
+      const response = await apiRequest("DELETE", `/api/casino/bets/${betId}`);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Aposta Cancelada!",
+        description: `Sua aposta foi cancelada. R$ ${data.refundAmount?.toLocaleString('pt-BR') || 0} foram reembolsados.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/casino/balance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/casino/bets"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao Cancelar",
+        description: error.message || "Não foi possível cancelar a aposta",
+        variant: "destructive",
+      });
+    },
+  });
+
   const addCondition = () => {
     if (newConditionType === 'win') {
       setConditions([...conditions, {
@@ -491,11 +513,24 @@ export default function Apostas() {
                         <span className="font-medium">
                           {bet.targetPlayer?.nickname || bet.targetPlayer?.firstName || 'Jogador'}
                         </span>
-                        <Badge 
-                          variant={bet.status === 'won' ? 'default' : bet.status === 'lost' ? 'destructive' : 'secondary'}
-                        >
-                          {bet.status === 'pending' ? 'Pendente' : bet.status === 'won' ? 'Ganhou!' : 'Perdeu'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={bet.status === 'won' ? 'default' : bet.status === 'lost' ? 'destructive' : 'secondary'}
+                          >
+                            {bet.status === 'pending' ? 'Pendente' : bet.status === 'won' ? 'Ganhou!' : 'Perdeu'}
+                          </Badge>
+                          {bet.status === 'pending' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteBetMutation.mutate(bet.id)}
+                              disabled={deleteBetMutation.isPending}
+                              data-testid={`button-delete-bet-${bet.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1">
                         <p>Valor: R$ {bet.amount.toLocaleString('pt-BR')}</p>
