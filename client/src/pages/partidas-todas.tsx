@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { Gamepad2, Calendar, MapPin, Trophy, Target, Skull, Crosshair, Star } from "lucide-react";
+import { Gamepad2, Calendar, MapPin, Trophy, Target, Skull, Crosshair, Star, ChevronDown, ChevronUp, Users } from "lucide-react";
 import type { Match, MatchStats } from "@shared/schema";
 
 type MatchWithStats = {
@@ -19,9 +21,23 @@ type MatchWithStats = {
 };
 
 export default function PartidasTodas() {
+  const [expandedMatches, setExpandedMatches] = useState<Set<number>>(new Set());
+  
   const { data: matchesWithStats = [], isLoading } = useQuery<MatchWithStats[]>({
     queryKey: ["/api/matches/with-stats"],
   });
+
+  const toggleExpand = (matchId: number) => {
+    setExpandedMatches(prev => {
+      const next = new Set(prev);
+      if (next.has(matchId)) {
+        next.delete(matchId);
+      } else {
+        next.add(matchId);
+      }
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -111,9 +127,12 @@ export default function PartidasTodas() {
         <CardContent>
           {sortedMatches.length > 0 ? (
             <div className="space-y-4">
-              {sortedMatches.map(({ match, aggregated }) => {
+              {sortedMatches.map(({ match, stats, aggregated }) => {
                 const ctWon = match.team1Score > match.team2Score;
                 const trWon = match.team2Score > match.team1Score;
+                const isExpanded = expandedMatches.has(match.id);
+                const sortedStats = [...stats].sort((a, b) => b.kills - a.kills);
+                
                 return (
                   <div
                     key={match.id}
@@ -194,6 +213,57 @@ export default function PartidasTodas() {
                         </div>
                       )}
                     </div>
+                    
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleExpand(match.id)}
+                        className="gap-2"
+                        data-testid={`button-expand-stats-${match.id}`}
+                      >
+                        <Users className="h-4 w-4" />
+                        {isExpanded ? "Ocultar Stats Individuais" : "Exibir Stats Individuais"}
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    
+                    {isExpanded && sortedStats.length > 0 && (
+                      <div className="pt-2 border-t border-border/50 space-y-2" data-testid={`player-stats-${match.id}`}>
+                        <div className="grid grid-cols-7 gap-2 text-xs font-medium text-muted-foreground px-2 py-1">
+                          <div>Jogador</div>
+                          <div className="text-center">K</div>
+                          <div className="text-center">D</div>
+                          <div className="text-center">A</div>
+                          <div className="text-center">K/D</div>
+                          <div className="text-center">HS</div>
+                          <div className="text-center">DMG</div>
+                        </div>
+                        {sortedStats.map((stat, idx) => {
+                          const kd = stat.deaths > 0 ? (stat.kills / stat.deaths).toFixed(2) : stat.kills.toFixed(2);
+                          const isTopKiller = aggregated.topKiller?.id === stat.id;
+                          const isMvp = aggregated.mvpPlayer?.id === stat.id;
+                          return (
+                            <div 
+                              key={stat.id} 
+                              className={`grid grid-cols-7 gap-2 text-sm px-2 py-2 rounded ${idx % 2 === 0 ? 'bg-muted/30' : ''} ${isTopKiller ? 'ring-1 ring-amber-500/50' : ''}`}
+                              data-testid={`player-stat-row-${stat.id}`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                {isMvp && <Star className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                                <span className="truncate font-medium">{stat.playerName || 'Jogador'}</span>
+                              </div>
+                              <div className="text-center font-mono text-green-500">{stat.kills}</div>
+                              <div className="text-center font-mono text-red-500">{stat.deaths}</div>
+                              <div className="text-center font-mono text-blue-500">{stat.assists}</div>
+                              <div className="text-center font-mono text-purple-500">{kd}</div>
+                              <div className="text-center font-mono text-orange-500">{stat.headshots}</div>
+                              <div className="text-center font-mono text-yellow-500">{stat.damage.toLocaleString('pt-BR')}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
