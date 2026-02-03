@@ -45,6 +45,44 @@ const MAPS = [
   { name: "Cache", abbr: "CCH", color: "text-emerald-500", bg: "bg-emerald-500/20" },
 ];
 
+const SEPARATED_PLAYERS = ["76561198308656936", "76561198004056384"];
+
+function ensureSeparation(
+  team1: PlayerWithLevel[], 
+  team2: PlayerWithLevel[]
+): { team1: PlayerWithLevel[]; team2: PlayerWithLevel[] } {
+  const team1Separated = team1.filter(p => SEPARATED_PLAYERS.includes(p.steamId64 || ""));
+  const team2Separated = team2.filter(p => SEPARATED_PLAYERS.includes(p.steamId64 || ""));
+  
+  if (team1Separated.length >= 2) {
+    const playerToMove = team1Separated[1];
+    const team2NonSeparated = team2.filter(p => !SEPARATED_PLAYERS.includes(p.steamId64 || ""));
+    
+    if (team2NonSeparated.length > 0) {
+      const playerToSwap = team2NonSeparated[0];
+      return {
+        team1: [...team1.filter(p => p.id !== playerToMove.id), playerToSwap],
+        team2: [...team2.filter(p => p.id !== playerToSwap.id), playerToMove]
+      };
+    }
+  }
+  
+  if (team2Separated.length >= 2) {
+    const playerToMove = team2Separated[1];
+    const team1NonSeparated = team1.filter(p => !SEPARATED_PLAYERS.includes(p.steamId64 || ""));
+    
+    if (team1NonSeparated.length > 0) {
+      const playerToSwap = team1NonSeparated[0];
+      return {
+        team1: [...team1.filter(p => p.id !== playerToSwap.id), playerToMove],
+        team2: [...team2.filter(p => p.id !== playerToMove.id), playerToSwap]
+      };
+    }
+  }
+  
+  return { team1, team2 };
+}
+
 export default function MixEscolherTime() {
   const { user: currentUser } = useAuth();
   const { data: users = [], isLoading } = useQuery<User[]>({
@@ -175,12 +213,14 @@ export default function MixEscolherTime() {
       }
     });
 
-    setTeam1(newTeam1);
-    setTeam2(newTeam2);
+    const { team1: finalTeam1, team2: finalTeam2 } = ensureSeparation(newTeam1, newTeam2);
+
+    setTeam1(finalTeam1);
+    setTeam2(finalTeam2);
     setAvailable([]);
     
-    if (newTeam1.length > 0) setCaptain1Id(newTeam1[0].id);
-    if (newTeam2.length > 0) setCaptain2Id(newTeam2[0].id);
+    if (finalTeam1.length > 0) setCaptain1Id(finalTeam1[0].id);
+    if (finalTeam2.length > 0) setCaptain2Id(finalTeam2[0].id);
   };
 
   const balanceByKd = () => {
@@ -205,24 +245,46 @@ export default function MixEscolherTime() {
       }
     });
 
-    setTeam1(newTeam1);
-    setTeam2(newTeam2);
+    const { team1: finalTeam1, team2: finalTeam2 } = ensureSeparation(newTeam1, newTeam2);
+
+    setTeam1(finalTeam1);
+    setTeam2(finalTeam2);
     setAvailable([]);
     
-    if (newTeam1.length > 0) setCaptain1Id(newTeam1[0].id);
-    if (newTeam2.length > 0) setCaptain2Id(newTeam2[0].id);
+    if (finalTeam1.length > 0) setCaptain1Id(finalTeam1[0].id);
+    if (finalTeam2.length > 0) setCaptain2Id(finalTeam2[0].id);
   };
 
   const moveToTeam = (player: PlayerWithLevel, targetTeam: "team1" | "team2") => {
-    setAvailable(available.filter(p => p.id !== player.id));
-    setTeam1(team1.filter(p => p.id !== player.id));
-    setTeam2(team2.filter(p => p.id !== player.id));
+    const newAvailable = available.filter(p => p.id !== player.id);
+    let newTeam1 = team1.filter(p => p.id !== player.id);
+    let newTeam2 = team2.filter(p => p.id !== player.id);
     
     if (targetTeam === "team1") {
-      setTeam1([...team1.filter(p => p.id !== player.id), player]);
+      newTeam1 = [...newTeam1, player];
     } else {
-      setTeam2([...team2.filter(p => p.id !== player.id), player]);
+      newTeam2 = [...newTeam2, player];
     }
+    
+    const playerSteamId = player.steamId64 || "";
+    if (SEPARATED_PLAYERS.includes(playerSteamId)) {
+      const targetList = targetTeam === "team1" ? newTeam1 : newTeam2;
+      const hasConflict = targetList.some(p => 
+        p.id !== player.id && SEPARATED_PLAYERS.includes(p.steamId64 || "")
+      );
+      
+      if (hasConflict) {
+        const { team1: fixedTeam1, team2: fixedTeam2 } = ensureSeparation(newTeam1, newTeam2);
+        setTeam1(fixedTeam1);
+        setTeam2(fixedTeam2);
+        setAvailable(newAvailable);
+        return;
+      }
+    }
+    
+    setAvailable(newAvailable);
+    setTeam1(newTeam1);
+    setTeam2(newTeam2);
   };
 
   const removeFromTeam = (player: PlayerWithLevel) => {

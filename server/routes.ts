@@ -632,6 +632,34 @@ export async function registerRoutes(
     }
   });
 
+  // Get all matches with aggregated stats
+  app.get('/api/matches/with-stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const matches = await storage.getAllMatches();
+      const matchesWithStats = await Promise.all(
+        matches.map(async (match) => {
+          const stats = await storage.getMatchStats(match.id);
+          const aggregated = {
+            totalKills: stats.reduce((sum, s) => sum + s.kills, 0),
+            totalDeaths: stats.reduce((sum, s) => sum + s.deaths, 0),
+            totalDamage: stats.reduce((sum, s) => sum + s.damage, 0),
+            totalHeadshots: stats.reduce((sum, s) => sum + s.headshots, 0),
+            playerCount: stats.length,
+            topKiller: stats.length > 0 
+              ? stats.reduce((top, s) => s.kills > top.kills ? s : top) 
+              : null,
+            mvpPlayer: stats.find(s => s.mvps > 0) || null,
+          };
+          return { match, stats, aggregated };
+        })
+      );
+      res.json(matchesWithStats);
+    } catch (error) {
+      console.error("Error fetching matches with stats:", error);
+      res.status(500).json({ message: "Failed to fetch matches with stats" });
+    }
+  });
+
   // Get match details with player stats
   app.get('/api/matches/:id', isAuthenticated, async (req: any, res) => {
     try {

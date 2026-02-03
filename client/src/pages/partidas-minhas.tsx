@@ -196,7 +196,7 @@ export default function PartidasMinhas() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 md:gap-6">
+                    <div className="flex items-center gap-3 md:gap-6">
                       <div className="text-center">
                         <div className="font-mono font-bold text-green-500">{stats.kills}</div>
                         <div className="text-xs text-muted-foreground">K</div>
@@ -216,6 +216,12 @@ export default function PartidasMinhas() {
                       <div className="text-center hidden sm:block">
                         <div className="font-mono font-bold text-blue-500">{stats.damage}</div>
                         <div className="text-xs text-muted-foreground">DMG</div>
+                      </div>
+                      <div className="text-center hidden md:block" data-testid={`stat-kd-${stats.id}`}>
+                        <div className="font-mono font-bold text-purple-500">
+                          {stats.deaths > 0 ? (stats.kills / stats.deaths).toFixed(2) : stats.kills.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">K/D</div>
                       </div>
                     </div>
                   </div>
