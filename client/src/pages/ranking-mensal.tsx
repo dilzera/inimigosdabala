@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Medal, Award, Target, Crosshair, Star, Calendar, TrendingUp, ArrowUpDown, Skull } from "lucide-react";
+import { Trophy, Medal, Award, Target, Crosshair, Star, Calendar, TrendingUp, ArrowUpDown, Skull, Handshake } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 
@@ -39,7 +39,7 @@ interface MonthlyStatsResponse {
   players: MonthlyPlayerStats[];
 }
 
-type SortField = "skillRating" | "kd" | "kills" | "deaths" | "headshots" | "winrate" | "matches" | "mvps" | "alphabetical";
+type SortField = "skillRating" | "kd" | "kills" | "deaths" | "headshots" | "winrate" | "matches" | "mvps" | "assists" | "alphabetical";
 
 export default function RankingMensal() {
   const [sortField, setSortField] = useState<SortField>("skillRating");
@@ -56,7 +56,8 @@ export default function RankingMensal() {
     );
   }
 
-  const players = data?.players || [];
+  const allPlayers = data?.players || [];
+  const players = allPlayers.filter(p => p.matchesPlayed >= 3);
   const monthName = data?.monthName || "";
   const year = data?.year || new Date().getFullYear();
 
@@ -106,6 +107,11 @@ export default function RankingMensal() {
         return b.matchesPlayed - a.matchesPlayed;
       case "mvps":
         return b.mvps - a.mvps;
+      case "assists": {
+        const avgA = a.matchesPlayed > 0 ? a.assists / a.matchesPlayed : 0;
+        const avgB = b.matchesPlayed > 0 ? b.assists / b.matchesPlayed : 0;
+        return avgB - avgA;
+      }
       case "alphabetical":
         return getPlayerName(a).localeCompare(getPlayerName(b), 'pt-BR');
       default:
@@ -113,10 +119,13 @@ export default function RankingMensal() {
     }
   });
 
+  const getAvgAssists = (p: MonthlyPlayerStats) => p.matchesPlayed > 0 ? p.assists / p.matchesPlayed : 0;
+
   const topBySkillRating = [...players].sort((a, b) => getSkillRating(b) - getSkillRating(a)).slice(0, 3);
   const topByKd = [...players].sort((a, b) => getKd(b) - getKd(a)).slice(0, 3);
   const topByKills = [...players].sort((a, b) => b.kills - a.kills).slice(0, 3);
   const topByWinRate = [...players].sort((a, b) => getWinRate(b) - getWinRate(a)).slice(0, 3);
+  const topByAssists = [...players].sort((a, b) => getAvgAssists(b) - getAvgAssists(a)).slice(0, 3);
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -197,11 +206,11 @@ export default function RankingMensal() {
           </div>
         </div>
         <Badge variant="secondary" className="text-lg px-4 py-1 w-fit">
-          {players.length} jogadores ativos
+          {players.length} jogadores ativos (min. 3 partidas)
         </Badge>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <TopCard
           title="Melhor Skill Rating"
           icon={<Star className="h-4 w-4 text-yellow-500" />}
@@ -225,6 +234,12 @@ export default function RankingMensal() {
           icon={<Trophy className="h-4 w-4 text-yellow-500" />}
           players={topByWinRate}
           statFormatter={(p) => `${getWinRate(p).toFixed(1)}%`}
+        />
+        <TopCard
+          title="Mais Assistências"
+          icon={<Handshake className="h-4 w-4 text-cyan-500" />}
+          players={topByAssists}
+          statFormatter={(p) => `${getAvgAssists(p).toFixed(1)}/jogo`}
         />
       </div>
 
@@ -254,6 +269,7 @@ export default function RankingMensal() {
                 <SelectItem value="winrate">Win Rate</SelectItem>
                 <SelectItem value="matches">Partidas</SelectItem>
                 <SelectItem value="mvps">MVPs</SelectItem>
+                <SelectItem value="assists">Assistências</SelectItem>
                 <SelectItem value="alphabetical">Alfabética</SelectItem>
               </SelectContent>
             </Select>
@@ -279,6 +295,8 @@ export default function RankingMensal() {
                     <TableHead className="text-center">Kills</TableHead>
                     <TableHead className="text-center">Deaths</TableHead>
                     <TableHead className="text-center">HS%</TableHead>
+                    <TableHead className="text-center">Assists</TableHead>
+                    <TableHead className="text-center">Avg Ast</TableHead>
                     <TableHead className="text-center">Win Rate</TableHead>
                     <TableHead className="text-center">MVPs</TableHead>
                   </TableRow>
@@ -327,6 +345,12 @@ export default function RankingMensal() {
                         <TableCell className="text-center font-mono">{player.kills}</TableCell>
                         <TableCell className="text-center font-mono">{player.deaths}</TableCell>
                         <TableCell className="text-center font-mono">{hsPercent.toFixed(1)}%</TableCell>
+                        <TableCell className="text-center font-mono text-cyan-500">{player.assists}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="font-mono text-cyan-500">
+                            {player.matchesPlayed > 0 ? (player.assists / player.matchesPlayed).toFixed(1) : "0.0"}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge variant={winRate >= 50 ? "default" : "secondary"} className="font-mono">
                             {winRate.toFixed(1)}%

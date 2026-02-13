@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Medal, Award, Target, Crosshair, Star, Info, ChevronDown } from "lucide-react";
+import { Trophy, Medal, Award, Target, Crosshair, Star, Info, ChevronDown, Handshake } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import type { User } from "@shared/schema";
@@ -41,6 +41,11 @@ export default function Rankings() {
     return winRateB - winRateA;
   });
   const sortedByMvps = [...playersWithMatches].sort((a, b) => b.totalMvps - a.totalMvps);
+  const sortedByAssists = [...playersWithMatches].sort((a, b) => {
+    const avgA = a.totalMatches > 0 ? a.totalAssists / a.totalMatches : 0;
+    const avgB = b.totalMatches > 0 ? b.totalAssists / b.totalMatches : 0;
+    return avgB - avgA;
+  });
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -335,6 +340,56 @@ export default function Rankings() {
                       <div className="text-right">
                         <span className="font-mono font-bold text-xl text-amber-500">{player.totalMvps}</span>
                         <div className="text-xs text-muted-foreground">MVPs</div>
+                      </div>
+                      {getRankBadge(index)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Handshake className="h-5 w-5 text-cyan-500" />
+              Ranking por Assistências (Média por Partida)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2">
+              {sortedByAssists.slice(0, 10).map((player, index) => {
+                const avgAssists = player.totalMatches > 0
+                  ? (player.totalAssists / player.totalMatches).toFixed(1)
+                  : "0.0";
+                return (
+                  <div 
+                    key={player.id}
+                    className={`flex items-center justify-between p-4 rounded-lg ${index < 3 ? 'bg-cyan-500/5 border border-cyan-500/20' : 'bg-background/50'}`}
+                    data-testid={`rank-assists-${player.id}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-center w-8">
+                        {getRankIcon(index)}
+                      </div>
+                      <Link href={`/jogador/${player.id}`} className="flex items-center gap-4 hover:opacity-80 transition-opacity" data-testid={`link-assists-player-${player.id}`}>
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={player.profileImageUrl || undefined} />
+                          <AvatarFallback className="bg-cyan-500/10 text-cyan-500">
+                            {player.nickname?.slice(0, 2).toUpperCase() || player.firstName?.[0] || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium hover:text-cyan-500 transition-colors">{player.nickname || player.firstName || "Jogador"}</div>
+                          <div className="text-xs text-muted-foreground">{player.totalAssists} assists em {player.totalMatches} partidas</div>
+                        </div>
+                      </Link>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-xl text-cyan-500">{avgAssists}</span>
+                        <div className="text-xs text-muted-foreground">por partida</div>
                       </div>
                       {getRankBadge(index)}
                     </div>

@@ -50,6 +50,8 @@ import {
   Sparkles,
   Target,
   Box,
+  Megaphone,
+  LayoutDashboard,
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -146,6 +148,32 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/"}
+                  data-testid="nav-mural"
+                >
+                  <Link href="/">
+                    <Megaphone className="h-4 w-4" />
+                    <span>Mural</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/dashboard"}
+                  data-testid="nav-dashboard"
+                >
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               <Collapsible defaultOpen className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>

@@ -38,11 +38,7 @@ import MixVetoMapas from "@/pages/mix-veto-mapas";
 import AdminHistoricoRankings from "@/pages/admin-historico-rankings";
 import Apostas from "@/pages/apostas";
 import Cassino from "@/pages/cassino";
-import { ServerCostPopup } from "@/components/server-cost-popup";
-import { AcePopup } from "@/components/ace-popup";
-import { ChampionshipPopup } from "@/components/championship-popup";
-import { MonthlyRankingPopup } from "@/components/monthly-ranking-popup";
-import { ProfileUpdatePopup } from "@/components/profile-update-popup";
+import Mural from "@/pages/mural";
 import logoUrl from "@assets/WhatsApp_Image_2025-11-17_at_01.47.14_(1)_1764723428520.jpeg";
 
 function Router() {
@@ -72,7 +68,8 @@ function Router() {
 
   return (
     <Switch>
-      <Route path="/" component={user?.isAdmin ? AdminDashboard : Dashboard} />
+      <Route path="/" component={Mural} />
+      <Route path="/dashboard" component={user?.isAdmin ? AdminDashboard : Dashboard} />
       <Route path="/perfil" component={Perfil} />
       <Route path="/mix/escolher-time" component={MixEscolherTime} />
       <Route path="/mix/veto-mapas" component={MixVetoMapas} />
@@ -149,11 +146,6 @@ function AppContent() {
   return (
     <AuthenticatedLayout>
       <Router />
-      <ServerCostPopup />
-      <AcePopup />
-      <ChampionshipPopup />
-      <MonthlyRankingPopup />
-      <ProfileUpdatePopup />
     </AuthenticatedLayout>
   );
 }

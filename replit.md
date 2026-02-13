@@ -15,14 +15,18 @@ Inimigos da Bala is a Counter-Strike 2 community management system designed for 
 ### Main Menu Structure
 The sidebar navigation includes the following sections:
 
-1. **MIX** (Collapsible)
+1. **Mural** - Home page with information board (server costs, ACE player, monthly ranking, championship, profile update)
+
+2. **Dashboard** - Personal stats dashboard (Admin: AdminDashboard, Player: Dashboard)
+
+3. **MIX** (Collapsible)
    - Escolher Time do Mix - Team balancing for matches
 
-2. **Perfil de Usuário** - User profile with personal stats
+4. **Perfil de Usuário** - User profile with personal stats
 
-3. **Melhores Jogadores** - Player rankings with multiple categories
+5. **Melhores Jogadores** - Player rankings with multiple categories (Skill Rating, K/D, HS%, Win Rate, MVPs, Assists)
 
-4. **Piores Jogadores** - Worst player rankings (Skill Rating, K/D, HS%, Win Rate)
+6. **Piores Jogadores** - Worst player rankings (Skill Rating, K/D, HS%, Win Rate)
 
 5. **Servidor** (Collapsible)
    - Comandos do Servidor - Server commands reference
@@ -45,7 +49,8 @@ The sidebar navigation includes the following sections:
    - Importar Partida - CSV import from CS2 server
 
 ### Page Routes
-- `/` - Main dashboard (Admin: AdminDashboard, Player: Dashboard)
+- `/` - Mural (information board - home page after login)
+- `/dashboard` - Personal dashboard (Admin: AdminDashboard, Player: Dashboard)
 - `/perfil` - User profile page
 - `/mix/escolher-time` - Team selection for MIX
 - `/rankings` - Player leaderboards
