@@ -1632,6 +1632,36 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: remove a player from the mix list without penalty
+  app.post('/api/mix/availability/admin-remove', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const currentUser = await storage.getUser(adminId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas admins podem remover jogadores da lista" });
+      }
+
+      const removeSchema = z.object({
+        listDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+        userId: z.string().min(1),
+      });
+
+      const parsed = removeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Dados inválidos" });
+      }
+
+      const success = await storage.leaveMixList(parsed.data.userId, parsed.data.listDate);
+      if (!success) {
+        return res.status(400).json({ message: "Jogador não está na lista deste dia" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error admin removing from mix list:", error);
+      res.status(500).json({ message: "Erro ao remover jogador da lista" });
+    }
+  });
+
   // Get user's penalty status
   app.get('/api/mix/penalties/:userId', isAuthenticated, async (req: any, res) => {
     try {

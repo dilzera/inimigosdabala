@@ -12,7 +12,7 @@ import { useLocation } from "wouter";
 import {
   Users, Clock, UserPlus, UserMinus, AlertTriangle,
   ChevronLeft, ChevronRight, CalendarDays, Shield, Swords,
-  ShieldAlert, CheckCircle, Ban
+  ShieldAlert, CheckCircle, Ban, X
 } from "lucide-react";
 import type { User as UserType, MixAvailability } from "@shared/schema";
 
@@ -131,6 +131,19 @@ export default function MixDisponibilidade() {
     },
     onError: (error: any) => {
       toast({ title: "Erro", description: error.message || "Não foi possível sair da lista", variant: "destructive" });
+    },
+  });
+
+  const adminRemoveMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      return apiRequest('POST', '/api/mix/availability/admin-remove', { listDate: currentDate, userId: targetUserId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/mix/availability', currentDate] });
+      toast({ title: "Jogador removido", description: "Jogador removido da lista sem penalidade." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message || "Não foi possível remover o jogador", variant: "destructive" });
     },
   });
 
@@ -376,6 +389,17 @@ export default function MixDisponibilidade() {
                       {player.userId === user?.id && (
                         <Badge variant="default">Você</Badge>
                       )}
+                      {user?.isAdmin && !confirmMode && player.userId !== user?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => adminRemoveMutation.mutate(player.userId)}
+                          disabled={adminRemoveMutation.isPending}
+                          data-testid={`button-admin-remove-main-${i + 1}`}
+                        >
+                          <X className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </>
                   ) : (
                     <span className="text-muted-foreground text-sm italic flex-1">
@@ -426,6 +450,17 @@ export default function MixDisponibilidade() {
                   </span>
                   {player.userId === user?.id && (
                     <Badge variant="default">Você</Badge>
+                  )}
+                  {user?.isAdmin && player.userId !== user?.id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => adminRemoveMutation.mutate(player.userId)}
+                      disabled={adminRemoveMutation.isPending}
+                      data-testid={`button-admin-remove-sub-${i + 1}`}
+                    >
+                      <X className="h-4 w-4 text-destructive" />
+                    </Button>
                   )}
                 </div>
               ))
