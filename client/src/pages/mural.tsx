@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useQuery } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -12,24 +16,64 @@ import {
   Sparkles, Star, Trophy, Users, Calendar, 
   TrendingUp, ArrowRight, User, Gamepad2, 
   CheckCircle, Link2, Megaphone, Award, Target,
-  DollarSign, ExternalLink, Handshake
+  DollarSign, ExternalLink, Handshake,
+  Newspaper, ChevronDown, ChevronRight, Plus, Trash2, Send
 } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
-import type { User as UserType, Match, MatchStats } from "@shared/schema";
+import type { User as UserType, Match, MatchStats, News } from "@shared/schema";
 import skinsLabLogo from "@assets/skins_lab_logo1_1771007653832.png";
 import thomaziniLogo from "@assets/thomazini_logo_1771007598394.jpeg";
 import dukinhaLogo from "@assets/WhatsApp_Image_2026-02-13_at_15.40.31_1771008050723.jpeg";
 import zenthorLogo from "@assets/zenthor_logo_1771007572398.png";
+
+type NewsWithAuthor = News & { author: UserType };
 
 export default function Mural() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
+  const [showNewsForm, setShowNewsForm] = useState(false);
+  const [newsTitle, setNewsTitle] = useState("");
+  const [newsContent, setNewsContent] = useState("");
   const pixKey = "12982690148";
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: allNews = [] } = useQuery<NewsWithAuthor[]>({
+    queryKey: ["/api/news"],
+  });
+
+  const createNewsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/news', { title: newsTitle, content: newsContent });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      setNewsTitle("");
+      setNewsContent("");
+      setShowNewsForm(false);
+      toast({ title: "Notícia publicada!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message || "Erro ao publicar", variant: "destructive" });
+    },
+  });
+
+  const deleteNewsMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('DELETE', `/api/news/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news"] });
+      toast({ title: "Notícia removida" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message || "Erro ao remover", variant: "destructive" });
+    },
   });
 
   const { data: latestMvp } = useQuery<{ match: Match; mvpStats: MatchStats; mvpUser: UserType } | null>({
@@ -92,6 +136,132 @@ export default function Mural() {
           </p>
         </div>
       </div>
+
+      <Collapsible open={newsOpen} onOpenChange={setNewsOpen}>
+        <Card className="border-primary/20" data-testid="card-news">
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer select-none">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Newspaper className="h-6 w-6 text-primary" />
+                  Jornal Inimigos da Bala
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {allNews.length > 0 && (
+                    <Badge variant="secondary">{allNews.length} notícia{allNews.length > 1 ? "s" : ""}</Badge>
+                  )}
+                  {newsOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+                </div>
+              </div>
+              <CardDescription>
+                Clique para {newsOpen ? "fechar" : "abrir"} o jornal da comunidade
+              </CardDescription>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              {user?.isAdmin && (
+                <div className="space-y-3">
+                  {!showNewsForm ? (
+                    <Button
+                      onClick={() => setShowNewsForm(true)}
+                      variant="outline"
+                      className="w-full"
+                      data-testid="button-new-news"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Publicar Notícia
+                    </Button>
+                  ) : (
+                    <Card className="border-primary/30">
+                      <CardContent className="pt-4 space-y-3">
+                        <Input
+                          placeholder="Título da notícia..."
+                          value={newsTitle}
+                          onChange={(e) => setNewsTitle(e.target.value)}
+                          data-testid="input-news-title"
+                        />
+                        <Textarea
+                          placeholder="Escreva o conteúdo da notícia..."
+                          value={newsContent}
+                          onChange={(e) => setNewsContent(e.target.value)}
+                          rows={4}
+                          data-testid="input-news-content"
+                        />
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            onClick={() => createNewsMutation.mutate()}
+                            disabled={!newsTitle.trim() || !newsContent.trim() || createNewsMutation.isPending}
+                            data-testid="button-publish-news"
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            Publicar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => { setShowNewsForm(false); setNewsTitle(""); setNewsContent(""); }}
+                            data-testid="button-cancel-news"
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {allNews.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Newspaper className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Nenhuma notícia publicada ainda.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {allNews.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-lg border bg-muted/30 space-y-2"
+                      data-testid={`news-item-${item.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-base">{item.title}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={item.author?.profileImageUrl || undefined} />
+                              <AvatarFallback className="text-[10px]">
+                                {(item.author?.nickname || item.author?.firstName || "A").slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-muted-foreground">
+                              {item.author?.nickname || item.author?.firstName || "Admin"}
+                              {" · "}
+                              {new Date(item.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                          </div>
+                        </div>
+                        {user?.isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteNewsMutation.mutate(item.id)}
+                            disabled={deleteNewsMutation.isPending}
+                            data-testid={`button-delete-news-${item.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{item.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <Card className="border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent" data-testid="card-server-cost">
         <CardHeader>

@@ -1805,6 +1805,62 @@ export async function registerRoutes(
     }
   });
 
+  // News endpoints
+  app.get('/api/news', isAuthenticated, async (req: any, res) => {
+    try {
+      const allNews = await storage.getAllNews();
+      res.json(allNews);
+    } catch (error) {
+      console.error("Error fetching news:", error);
+      res.status(500).json({ message: "Erro ao buscar notícias" });
+    }
+  });
+
+  app.post('/api/news', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas admins podem publicar notícias" });
+      }
+
+      const newsSchema = z.object({
+        title: z.string().min(1, "Título obrigatório").max(200),
+        content: z.string().min(1, "Conteúdo obrigatório").max(2000),
+      });
+
+      const parsed = newsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Dados inválidos" });
+      }
+
+      const item = await storage.createNews(userId, parsed.data.title, parsed.data.content);
+      res.json(item);
+    } catch (error) {
+      console.error("Error creating news:", error);
+      res.status(500).json({ message: "Erro ao criar notícia" });
+    }
+  });
+
+  app.delete('/api/news/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas admins podem deletar notícias" });
+      }
+
+      const success = await storage.deleteNews(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Notícia não encontrada" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting news:", error);
+      res.status(500).json({ message: "Erro ao deletar notícia" });
+    }
+  });
+
   // Get latest match MVP for mural
   app.get('/api/matches/latest-mvp', isAuthenticated, async (req: any, res) => {
     try {

@@ -13,6 +13,7 @@ import {
   casinoTransactions,
   mixAvailability,
   mixPenalties,
+  news,
   type User,
   type UpsertUser,
   type Match,
@@ -35,6 +36,7 @@ import {
   type CasinoTransaction,
   type MixAvailability,
   type MixPenalty,
+  type News,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -116,6 +118,11 @@ export interface IStorage {
   getActivePenaltyCount(userId: string): Promise<number>;
   addPenalty(userId: string, listDate: string): Promise<MixPenalty>;
   getMixListUserIds(listDate: string): Promise<string[]>;
+
+  // News operations
+  getAllNews(): Promise<Array<News & { author: User }>>;
+  createNews(authorId: string, title: string, content: string): Promise<News>;
+  deleteNews(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1039,6 +1046,24 @@ export class DatabaseStorage implements IStorage {
       .from(mixAvailability)
       .where(sql`${mixAvailability.listDate} = ${listDate} AND ${mixAvailability.isSub} = false`);
     return entries.map(e => e.userId);
+  }
+
+  async getAllNews(): Promise<Array<News & { author: User }>> {
+    const result = await db.select()
+      .from(news)
+      .innerJoin(users, eq(news.authorId, users.id))
+      .orderBy(desc(news.createdAt));
+    return result.map(r => ({ ...r.news, author: r.users }));
+  }
+
+  async createNews(authorId: string, title: string, content: string): Promise<News> {
+    const [item] = await db.insert(news).values({ authorId, title, content }).returning();
+    return item;
+  }
+
+  async deleteNews(id: string): Promise<boolean> {
+    const result = await db.delete(news).where(eq(news.id, id)).returning();
+    return result.length > 0;
   }
 }
 
