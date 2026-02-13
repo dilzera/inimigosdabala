@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Medal, Award, Target, Crosshair, Star, Calendar, TrendingUp, ArrowUpDown, Skull, Handshake } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "wouter";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface MonthlyPlayerStats {
   userId: string;
@@ -41,11 +42,34 @@ interface MonthlyStatsResponse {
 
 type SortField = "skillRating" | "kd" | "kills" | "deaths" | "headshots" | "winrate" | "matches" | "mvps" | "assists" | "alphabetical";
 
+function getMonthOptions() {
+  const now = new Date();
+  const months = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+      label: d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' }),
+    });
+  }
+  return months;
+}
+
 export default function RankingMensal() {
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const [sortField, setSortField] = useState<SortField>("skillRating");
   
+  const selectedMonth = monthOptions[selectedIdx];
+
   const { data, isLoading } = useQuery<MonthlyStatsResponse>({
-    queryKey: ["/api/stats/monthly"],
+    queryKey: ['/api/stats/monthly', selectedMonth.year, selectedMonth.month],
+    queryFn: async () => {
+      const res = await fetch(`/api/stats/monthly/${selectedMonth.year}/${selectedMonth.month}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json();
+    },
   });
 
   if (isLoading) {
@@ -200,9 +224,41 @@ export default function RankingMensal() {
           <Calendar className="h-8 w-8 text-primary" />
           <div>
             <h1 className="text-3xl font-bold">Ranking Mensal</h1>
-            <p className="text-muted-foreground capitalize">
-              {monthName} {year}
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSelectedIdx(Math.min(selectedIdx + 1, monthOptions.length - 1))}
+                disabled={selectedIdx >= monthOptions.length - 1}
+                data-testid="button-prev-month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Select
+                value={String(selectedIdx)}
+                onValueChange={(v) => setSelectedIdx(Number(v))}
+              >
+                <SelectTrigger className="w-[220px]" data-testid="select-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((opt, idx) => (
+                    <SelectItem key={idx} value={String(idx)}>
+                      <span className="capitalize">{opt.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSelectedIdx(Math.max(selectedIdx - 1, 0))}
+                disabled={selectedIdx <= 0}
+                data-testid="button-next-month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
         <Badge variant="secondary" className="text-lg px-4 py-1 w-fit">

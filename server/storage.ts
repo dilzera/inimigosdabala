@@ -12,6 +12,7 @@ import {
   betItems,
   casinoTransactions,
   mixAvailability,
+  mixPenalties,
   type User,
   type UpsertUser,
   type Match,
@@ -33,6 +34,7 @@ import {
   type BetItem,
   type CasinoTransaction,
   type MixAvailability,
+  type MixPenalty,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -108,6 +110,12 @@ export interface IStorage {
   joinMixList(userId: string, listDate: string, isSub: boolean): Promise<MixAvailability | undefined>;
   leaveMixList(userId: string, listDate: string): Promise<boolean>;
   getLatestMatchWithMvp(): Promise<{ match: Match; mvpStats: MatchStats; mvpUser: User } | undefined>;
+
+  // Mix penalty operations
+  getUserPenalties(userId: string): Promise<MixPenalty[]>;
+  getActivePenaltyCount(userId: string): Promise<number>;
+  addPenalty(userId: string, listDate: string): Promise<MixPenalty>;
+  getMixListUserIds(listDate: string): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1003,6 +1011,34 @@ export class DatabaseStorage implements IStorage {
     if (!mvpUser) return undefined;
 
     return { match: latestMatch, mvpStats: mvp, mvpUser };
+  }
+
+  async getUserPenalties(userId: string): Promise<MixPenalty[]> {
+    return db.select().from(mixPenalties)
+      .where(eq(mixPenalties.userId, userId))
+      .orderBy(desc(mixPenalties.createdAt));
+  }
+
+  async getActivePenaltyCount(userId: string): Promise<number> {
+    const penalties = await db.select().from(mixPenalties)
+      .where(eq(mixPenalties.userId, userId));
+    return penalties.length;
+  }
+
+  async addPenalty(userId: string, listDate: string): Promise<MixPenalty> {
+    const [penalty] = await db.insert(mixPenalties).values({
+      userId,
+      listDate,
+      type: "no_show",
+    }).returning();
+    return penalty;
+  }
+
+  async getMixListUserIds(listDate: string): Promise<string[]> {
+    const entries = await db.select({ userId: mixAvailability.userId })
+      .from(mixAvailability)
+      .where(sql`${mixAvailability.listDate} = ${listDate} AND ${mixAvailability.isSub} = false`);
+    return entries.map(e => e.userId);
   }
 }
 

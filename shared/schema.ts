@@ -404,6 +404,26 @@ export const insertMixAvailabilitySchema = createInsertSchema(mixAvailability).o
   joinedAt: true,
 });
 
+export const mixPenalties = pgTable("mix_penalties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  listDate: varchar("list_date").notNull(),
+  type: varchar("type").notNull().default("no_show"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const mixPenaltyRelations = relations(mixPenalties, ({ one }) => ({
+  user: one(users, {
+    fields: [mixPenalties.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertMixPenaltySchema = createInsertSchema(mixPenalties).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -430,3 +450,5 @@ export type CasinoTransaction = typeof casinoTransactions.$inferSelect;
 export type InsertCasinoTransaction = z.infer<typeof insertCasinoTransactionSchema>;
 export type MixAvailability = typeof mixAvailability.$inferSelect;
 export type InsertMixAvailability = z.infer<typeof insertMixAvailabilitySchema>;
+export type MixPenalty = typeof mixPenalties.$inferSelect;
+export type InsertMixPenalty = z.infer<typeof insertMixPenaltySchema>;

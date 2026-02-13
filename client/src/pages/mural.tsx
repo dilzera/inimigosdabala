@@ -18,7 +18,7 @@ import { SiInstagram } from "react-icons/si";
 import type { User as UserType, Match, MatchStats } from "@shared/schema";
 import skinsLabLogo from "@assets/skins_lab_logo1_1771007653832.png";
 import thomaziniLogo from "@assets/thomazini_logo_1771007598394.jpeg";
-import dukinhaLogo from "@assets/dukinha_logo_1771007595272.jpg";
+import dukinhaLogo from "@assets/WhatsApp_Image_2026-02-13_at_15.40.31_1771008050723.jpeg";
 import zenthorLogo from "@assets/zenthor_logo_1771007572398.png";
 
 export default function Mural() {

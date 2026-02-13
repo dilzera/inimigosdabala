@@ -2,8 +2,10 @@ import type { Express } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { updateUserStatsSchema } from "@shared/schema";
+import { updateUserStatsSchema, mixPenalties } from "@shared/schema";
 import { z } from "zod";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // CSV row schema for validation
 const csvRowSchema = z.object({
@@ -1578,13 +1580,27 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Dados inválidos" });
       }
       
-      const { listDate, isSub } = parsed.data;
+      let { listDate, isSub } = parsed.data;
+
+      const penaltyCount = await storage.getActivePenaltyCount(userId);
+
+      if (penaltyCount >= 3) {
+        return res.status(403).json({
+          message: "Você está suspenso por 1 lista devido a faltas repetidas. Aguarde a próxima lista.",
+          penaltyCount,
+          suspended: true,
+        });
+      }
+
+      if (penaltyCount >= 1 && !isSub) {
+        isSub = true;
+      }
 
       const entry = await storage.joinMixList(userId, listDate, isSub);
       if (!entry) {
         return res.status(400).json({ message: "Você já está na lista deste dia" });
       }
-      res.json(entry);
+      res.json({ ...entry, forcedSub: penaltyCount >= 1 && !parsed.data.isSub });
     } catch (error) {
       console.error("Error joining mix list:", error);
       res.status(500).json({ message: "Erro ao entrar na lista" });
@@ -1613,6 +1629,179 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error leaving mix list:", error);
       res.status(500).json({ message: "Erro ao sair da lista" });
+    }
+  });
+
+  // Get user's penalty status
+  app.get('/api/mix/penalties/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const penalties = await storage.getUserPenalties(userId);
+      const count = penalties.length;
+      res.json({
+        penalties,
+        count,
+        forcedSub: count >= 1 && count < 3,
+        suspended: count >= 3,
+      });
+    } catch (error) {
+      console.error("Error fetching penalties:", error);
+      res.status(500).json({ message: "Erro ao buscar penalidades" });
+    }
+  });
+
+  // Admin: confirm who played from the mix list
+  app.post('/api/mix/confirm-played', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas admins podem confirmar a lista" });
+      }
+
+      const confirmSchema = z.object({
+        listDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+        playedUserIds: z.array(z.string()),
+      });
+
+      const parsed = confirmSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Dados inválidos" });
+      }
+
+      const { listDate, playedUserIds } = parsed.data;
+      const listUserIds = await storage.getMixListUserIds(listDate);
+      const playedSet = new Set(playedUserIds);
+
+      const noShowUsers: string[] = [];
+      for (const uid of listUserIds) {
+        if (!playedSet.has(uid)) {
+          await storage.addPenalty(uid, listDate);
+          noShowUsers.push(uid);
+        }
+      }
+
+      res.json({
+        confirmed: true,
+        listDate,
+        totalInList: listUserIds.length,
+        totalPlayed: playedUserIds.length,
+        noShowCount: noShowUsers.length,
+        noShowUserIds: noShowUsers,
+      });
+    } catch (error) {
+      console.error("Error confirming mix list:", error);
+      res.status(500).json({ message: "Erro ao confirmar lista" });
+    }
+  });
+
+  // Admin: clear penalties for a user
+  app.delete('/api/mix/penalties/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const currentUser = await storage.getUser(adminId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas admins podem limpar penalidades" });
+      }
+
+      const { userId } = req.params;
+      await db.delete(mixPenalties).where(eq(mixPenalties.userId, userId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing penalties:", error);
+      res.status(500).json({ message: "Erro ao limpar penalidades" });
+    }
+  });
+
+  // Monthly stats with month/year parameter for history
+  app.get('/api/stats/monthly/:year/:month', isAuthenticated, async (req: any, res) => {
+    try {
+      const year = parseInt(req.params.year);
+      const month = parseInt(req.params.month);
+      
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({ message: "Mês ou ano inválido" });
+      }
+
+      const firstDayOfMonth = new Date(year, month - 1, 1);
+      const lastDayOfMonth = new Date(year, month, 0, 23, 59, 59);
+
+      const allMatches = await storage.getAllMatches();
+      const monthlyMatches = allMatches.filter(m => {
+        const matchDate = new Date(m.date);
+        return matchDate >= firstDayOfMonth && matchDate <= lastDayOfMonth;
+      });
+
+      const allUsers = await storage.getAllUsers();
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+      const playerStats: Record<string, {
+        userId: string;
+        kills: number; deaths: number; assists: number;
+        headshots: number; damage: number; mvps: number;
+        matchesPlayed: number; matchesWon: number;
+        total5ks: number; total4ks: number; total3ks: number;
+        seenMatches: Set<string>;
+      }> = {};
+
+      for (const match of monthlyMatches) {
+        const stats = await storage.getMatchStats(match.id);
+        for (const stat of stats) {
+          if (!playerStats[stat.userId]) {
+            playerStats[stat.userId] = {
+              userId: stat.userId,
+              kills: 0, deaths: 0, assists: 0,
+              headshots: 0, damage: 0, mvps: 0,
+              matchesPlayed: 0, matchesWon: 0,
+              total5ks: 0, total4ks: 0, total3ks: 0,
+              seenMatches: new Set(),
+            };
+          }
+          const ps = playerStats[stat.userId];
+          ps.kills += stat.kills;
+          ps.deaths += stat.deaths;
+          ps.assists += stat.assists;
+          ps.headshots += stat.headshots;
+          ps.damage += stat.damage;
+          ps.mvps += stat.mvps;
+          ps.total5ks += stat.enemy5ks;
+          ps.total4ks += stat.enemy4ks;
+          ps.total3ks += stat.enemy3ks;
+
+          if (!ps.seenMatches.has(match.id)) {
+            ps.seenMatches.add(match.id);
+            ps.matchesPlayed += 1;
+            const isTeam1 = stat.team?.toLowerCase().includes('ct') || stat.team === 'team1';
+            const team1Won = match.team1Score > match.team2Score;
+            if ((isTeam1 && team1Won) || (!isTeam1 && !team1Won)) {
+              ps.matchesWon += 1;
+            }
+          }
+        }
+      }
+
+      const result = Object.values(playerStats).map(ps => {
+        const user = userMap.get(ps.userId);
+        const { seenMatches, ...statsWithoutSet } = ps;
+        return {
+          ...statsWithoutSet,
+          user: user ? {
+            id: user.id, nickname: user.nickname, firstName: user.firstName,
+            email: user.email, profileImageUrl: user.profileImageUrl, steamId64: user.steamId64,
+          } : null,
+        };
+      }).filter(p => p.user !== null);
+
+      const monthDate = new Date(year, month - 1, 1);
+      res.json({
+        month,
+        year,
+        monthName: monthDate.toLocaleString('pt-BR', { month: 'long' }),
+        players: result,
+      });
+    } catch (error) {
+      console.error("Error fetching monthly stats by date:", error);
+      res.status(500).json({ message: "Failed to fetch monthly stats" });
     }
   });
 
