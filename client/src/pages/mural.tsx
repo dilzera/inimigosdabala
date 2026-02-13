@@ -11,9 +11,10 @@ import {
   Heart, Copy, Check, Server, Globe, 
   Sparkles, Star, Trophy, Users, Calendar, 
   TrendingUp, ArrowRight, User, Gamepad2, 
-  CheckCircle, Link2, Megaphone
+  CheckCircle, Link2, Megaphone, Award, Target,
+  DollarSign
 } from "lucide-react";
-import type { User as UserType } from "@shared/schema";
+import type { User as UserType, Match, MatchStats } from "@shared/schema";
 
 export default function Mural() {
   const { user } = useAuth();
@@ -24,6 +25,15 @@ export default function Mural() {
 
   const { data: users = [] } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: latestMvp } = useQuery<{ match: Match; mvpStats: MatchStats; mvpUser: UserType } | null>({
+    queryKey: ["/api/matches/latest-mvp"],
+    queryFn: async () => {
+      const res = await fetch("/api/matches/latest-mvp", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
   });
 
   const latestAcePlayer = users
@@ -58,6 +68,14 @@ export default function Mural() {
     ? (latestAcePlayer.nickname || latestAcePlayer.firstName || "Jogador")
     : null;
 
+  const mvpName = latestMvp?.mvpUser
+    ? (latestMvp.mvpUser.nickname || latestMvp.mvpUser.firstName || "Jogador")
+    : null;
+
+  const mvpKd = latestMvp?.mvpStats
+    ? ((latestMvp.mvpStats.kills || 0) / Math.max(1, latestMvp.mvpStats.deaths || 1)).toFixed(2)
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -69,6 +87,84 @@ export default function Mural() {
           </p>
         </div>
       </div>
+
+      <Card className="border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent" data-testid="card-server-cost">
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <DollarSign className="h-6 w-6 text-primary" />
+              Custos da Comunidade
+            </CardTitle>
+            <Badge variant="default" className="font-mono text-base px-3">
+              R$ 179,90/mês
+            </Badge>
+          </div>
+          <CardDescription className="text-base">
+            Ajude a manter o servidor e o site funcionando! Qualquer valor faz diferença.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between p-4 rounded-lg bg-card border">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Server className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <span className="font-semibold">Servidor CS2</span>
+                  <p className="text-xs text-muted-foreground">128 tick, plugins</p>
+                </div>
+              </div>
+              <span className="font-mono font-bold text-lg">R$ 79,90</span>
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-lg bg-card border">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Globe className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <span className="font-semibold">Site / Sistema</span>
+                  <p className="text-xs text-muted-foreground">Hospedagem, domínio</p>
+                </div>
+              </div>
+              <span className="font-mono font-bold text-lg">R$ 100,00</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 space-y-3">
+            <p className="text-center font-semibold text-primary">
+              Chave PIX (Celular)
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 p-3 rounded-lg bg-background text-center font-mono text-xl tracking-wider border">
+                {pixKey}
+              </code>
+              <Button
+                onClick={copyPixKey}
+                variant="default"
+                data-testid="button-copy-pix-mural"
+              >
+                {copied ? (
+                  <><Check className="h-4 w-4 mr-2" /> Copiado!</>
+                ) : (
+                  <><Copy className="h-4 w-4 mr-2" /> Copiar</>
+                )}
+              </Button>
+            </div>
+            <p className="text-center text-sm font-medium text-primary/80">
+              Não existe valor mínimo! R$ 1, R$ 2, R$ 5... toda ajuda conta!
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+            <Heart className="h-4 w-4 text-red-500" />
+            <p className="text-sm font-medium text-green-600 dark:text-green-400">
+              Obrigado a todos que contribuem para manter nossa comunidade viva!
+            </p>
+            <Heart className="h-4 w-4 text-red-500" />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         {needsProfileUpdate && (
@@ -127,6 +223,62 @@ export default function Mural() {
                 Atualizar Perfil
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {latestMvp && mvpName && (
+          <Card className="border-blue-500/30 bg-blue-500/5" data-testid="card-mvp-last-match">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5 text-blue-500" />
+                MVP da Última Partida
+                <Award className="h-5 w-5 text-blue-500" />
+              </CardTitle>
+              <CardDescription>
+                Destaque da partida mais recente no servidor!
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <Avatar className="h-20 w-20 border-4 border-blue-500">
+                    <AvatarImage src={latestMvp.mvpUser.profileImageUrl || undefined} />
+                    <AvatarFallback className="bg-blue-500/20 text-blue-600 text-xl font-bold">
+                      {mvpName.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-2 -right-2 bg-blue-500 rounded-full p-1.5">
+                    <Award className="h-4 w-4 text-white" />
+                  </div>
+                </div>
+                <div className="text-center space-y-1">
+                  <h3 className="text-xl font-bold text-primary">{mvpName}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Melhor jogador na partida de {latestMvp.match.map}
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-3 w-full">
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-muted/50">
+                    <Target className="h-4 w-4 text-red-500 mb-1" />
+                    <span className="font-mono font-bold">{latestMvp.mvpStats.kills}</span>
+                    <span className="text-xs text-muted-foreground">Kills</span>
+                  </div>
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-muted/50">
+                    <TrendingUp className="h-4 w-4 text-green-500 mb-1" />
+                    <span className="font-mono font-bold">{mvpKd}</span>
+                    <span className="text-xs text-muted-foreground">K/D</span>
+                  </div>
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-muted/50">
+                    <Award className="h-4 w-4 text-blue-500 mb-1" />
+                    <span className="font-mono font-bold">{latestMvp.mvpStats.mvps}</span>
+                    <span className="text-xs text-muted-foreground">MVPs</span>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="font-mono">
+                  {latestMvp.match.map} - {latestMvp.match.team1Score} x {latestMvp.match.team2Score}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -256,74 +408,6 @@ export default function Mural() {
               Quero Participar
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2 border-red-500/20" data-testid="card-server-cost">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Heart className="h-5 w-5 text-red-500" />
-              Ajude a Manter Nossa Comunidade
-            </CardTitle>
-            <CardDescription>
-              O Inimigos da Bala precisa da sua ajuda para continuar funcionando!
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm font-medium text-primary">
-                Qualquer valor ajuda! Pode ser R$ 1, R$ 5, R$ 10... o que você puder contribuir faz diferença para manter nossa comunidade ativa!
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Server className="h-5 w-5 text-primary" />
-                  <span className="font-medium text-sm">Servidor CS2</span>
-                </div>
-                <Badge variant="secondary" className="font-mono">R$ 79,90</Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-primary" />
-                  <span className="font-medium text-sm">Site</span>
-                </div>
-                <Badge variant="secondary" className="font-mono">R$ 100,00</Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <span className="font-semibold text-sm">Total</span>
-                <Badge variant="default" className="font-mono">R$ 179,90</Badge>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-center">Chave PIX (Celular)</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 p-3 rounded-lg bg-muted text-center font-mono text-lg tracking-wider">
-                  {pixKey}
-                </code>
-                <Button
-                  onClick={copyPixKey}
-                  variant="outline"
-                  size="icon"
-                  className="h-12 w-12"
-                  data-testid="button-copy-pix-mural"
-                >
-                  {copied ? (
-                    <Check className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <Copy className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-              <p className="text-sm text-center font-medium text-green-600 dark:text-green-400">
-                Não existe valor mínimo! R$ 1, R$ 2, R$ 5... toda ajuda conta!
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>

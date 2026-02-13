@@ -200,6 +200,18 @@ export function AppSidebar() {
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           asChild
+                          isActive={location === "/mix/disponibilidade"}
+                          data-testid="nav-mix-disponibilidade"
+                        >
+                          <Link href="/mix/disponibilidade">
+                            <UserCheck className="h-4 w-4" />
+                            <span>Lista do Mix</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
                           isActive={location === "/mix/veto-mapas"}
                           data-testid="nav-veto-mapas"
                         >

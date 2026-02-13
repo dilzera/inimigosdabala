@@ -35,6 +35,7 @@ import Campeonato from "@/pages/campeonato";
 import AdminCampeonato from "@/pages/admin-campeonato";
 import RankingMensal from "@/pages/ranking-mensal";
 import MixVetoMapas from "@/pages/mix-veto-mapas";
+import MixDisponibilidade from "@/pages/mix-disponibilidade";
 import AdminHistoricoRankings from "@/pages/admin-historico-rankings";
 import Apostas from "@/pages/apostas";
 import Cassino from "@/pages/cassino";
@@ -73,6 +74,7 @@ function Router() {
       <Route path="/perfil" component={Perfil} />
       <Route path="/mix/escolher-time" component={MixEscolherTime} />
       <Route path="/mix/veto-mapas" component={MixVetoMapas} />
+      <Route path="/mix/disponibilidade" component={MixDisponibilidade} />
       <Route path="/jogadores" component={Jogadores} />
       <Route path="/rankings" component={Rankings} />
       <Route path="/piores-jogadores" component={PioresJogadores} />

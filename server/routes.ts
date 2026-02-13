@@ -1550,6 +1550,86 @@ export async function registerRoutes(
     }
   });
 
+  // Mix availability routes
+  app.get('/api/mix/availability/:date', isAuthenticated, async (req: any, res) => {
+    try {
+      const { date } = req.params;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ message: "Data inválida. Use o formato YYYY-MM-DD" });
+      }
+      const list = await storage.getMixList(date);
+      res.json(list);
+    } catch (error) {
+      console.error("Error fetching mix list:", error);
+      res.status(500).json({ message: "Erro ao buscar lista do mix" });
+    }
+  });
+
+  app.post('/api/mix/availability/join', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const joinSchema = z.object({
+        listDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+        isSub: z.boolean().optional().default(false),
+      });
+      
+      const parsed = joinSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Dados inválidos" });
+      }
+      
+      const { listDate, isSub } = parsed.data;
+
+      const entry = await storage.joinMixList(userId, listDate, isSub);
+      if (!entry) {
+        return res.status(400).json({ message: "Você já está na lista deste dia" });
+      }
+      res.json(entry);
+    } catch (error) {
+      console.error("Error joining mix list:", error);
+      res.status(500).json({ message: "Erro ao entrar na lista" });
+    }
+  });
+
+  app.post('/api/mix/availability/leave', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const leaveSchema = z.object({
+        listDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+      });
+      
+      const parsed = leaveSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Dados inválidos" });
+      }
+      
+      const { listDate } = parsed.data;
+
+      const success = await storage.leaveMixList(userId, listDate);
+      if (!success) {
+        return res.status(400).json({ message: "Você não está na lista deste dia" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error leaving mix list:", error);
+      res.status(500).json({ message: "Erro ao sair da lista" });
+    }
+  });
+
+  // Get latest match MVP for mural
+  app.get('/api/matches/latest-mvp', isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await storage.getLatestMatchWithMvp();
+      if (!result) {
+        return res.json(null);
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching latest MVP:", error);
+      res.status(500).json({ message: "Erro ao buscar MVP" });
+    }
+  });
+
   return httpServer;
 }
 

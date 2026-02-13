@@ -11,6 +11,7 @@ import {
   bets,
   betItems,
   casinoTransactions,
+  mixAvailability,
   type User,
   type UpsertUser,
   type Match,
@@ -31,6 +32,7 @@ import {
   type Bet,
   type BetItem,
   type CasinoTransaction,
+  type MixAvailability,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -100,6 +102,12 @@ export interface IStorage {
   resolveBet(betId: string, matchStats: MatchStats, winnerTeam: string | null): Promise<Bet | undefined>;
   deleteBet(betId: string, userId: string): Promise<{ success: boolean; refundAmount?: number }>;
   getCasinoTransactions(userId: string): Promise<CasinoTransaction[]>;
+  
+  // Mix availability operations
+  getMixList(listDate: string): Promise<Array<MixAvailability & { user: User }>>;
+  joinMixList(userId: string, listDate: string, isSub: boolean): Promise<MixAvailability | undefined>;
+  leaveMixList(userId: string, listDate: string): Promise<boolean>;
+  getLatestMatchWithMvp(): Promise<{ match: Match; mvpStats: MatchStats; mvpUser: User } | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -867,6 +875,134 @@ export class DatabaseStorage implements IStorage {
       .where(eq(casinoTransactions.userId, userId))
       .orderBy(desc(casinoTransactions.createdAt))
       .limit(50);
+  }
+
+  async getMixList(listDate: string): Promise<Array<MixAvailability & { user: User }>> {
+    const results = await db
+      .select()
+      .from(mixAvailability)
+      .innerJoin(users, eq(mixAvailability.userId, users.id))
+      .where(eq(mixAvailability.listDate, listDate))
+      .orderBy(mixAvailability.position);
+    
+    return results.map(r => ({
+      ...r.mix_availability,
+      user: r.users,
+    }));
+  }
+
+  async joinMixList(userId: string, listDate: string, isSub: boolean): Promise<MixAvailability | undefined> {
+    const existing = await db.select().from(mixAvailability)
+      .where(sql`${mixAvailability.userId} = ${userId} AND ${mixAvailability.listDate} = ${listDate}`);
+    
+    if (existing.length > 0) {
+      return undefined;
+    }
+
+    const currentList = await db.select().from(mixAvailability)
+      .where(eq(mixAvailability.listDate, listDate))
+      .orderBy(mixAvailability.position);
+
+    let position: number;
+    if (isSub) {
+      const subs = currentList.filter(e => e.isSub);
+      position = subs.length > 0 ? Math.max(...subs.map(s => s.position)) + 1 : 11;
+    } else {
+      const mains = currentList.filter(e => !e.isSub);
+      if (mains.length >= 10) {
+        const subs = currentList.filter(e => e.isSub);
+        position = subs.length > 0 ? Math.max(...subs.map(s => s.position)) + 1 : 11;
+        isSub = true;
+      } else {
+        position = mains.length + 1;
+      }
+    }
+
+    const [entry] = await db.insert(mixAvailability).values({
+      listDate,
+      userId,
+      position,
+      isSub,
+    }).returning();
+
+    return entry;
+  }
+
+  async leaveMixList(userId: string, listDate: string): Promise<boolean> {
+    const result = await db.delete(mixAvailability)
+      .where(sql`${mixAvailability.userId} = ${userId} AND ${mixAvailability.listDate} = ${listDate}`)
+      .returning();
+    
+    if (result.length === 0) return false;
+
+    const removedEntry = result[0];
+    const remaining = await db.select().from(mixAvailability)
+      .where(eq(mixAvailability.listDate, listDate))
+      .orderBy(mixAvailability.position);
+
+    if (!removedEntry.isSub) {
+      const firstSub = remaining.find(e => e.isSub);
+      if (firstSub) {
+        await db.update(mixAvailability)
+          .set({ isSub: false, position: removedEntry.position })
+          .where(eq(mixAvailability.id, firstSub.id));
+      }
+
+      const mains = remaining.filter(e => !e.isSub && e.id !== firstSub?.id);
+      for (let i = 0; i < mains.length; i++) {
+        const expectedPos = i + 1 + (mains[i].position <= removedEntry.position ? 0 : -1);
+        if (mains[i].position !== expectedPos) {
+          // Recalculate
+        }
+      }
+    }
+
+    // Reindex positions
+    const allEntries = await db.select().from(mixAvailability)
+      .where(eq(mixAvailability.listDate, listDate))
+      .orderBy(mixAvailability.position);
+    
+    const mainEntries = allEntries.filter(e => !e.isSub);
+    const subEntries = allEntries.filter(e => e.isSub);
+
+    for (let i = 0; i < mainEntries.length; i++) {
+      if (mainEntries[i].position !== i + 1) {
+        await db.update(mixAvailability)
+          .set({ position: i + 1 })
+          .where(eq(mixAvailability.id, mainEntries[i].id));
+      }
+    }
+    for (let i = 0; i < subEntries.length; i++) {
+      if (subEntries[i].position !== 11 + i) {
+        await db.update(mixAvailability)
+          .set({ position: 11 + i })
+          .where(eq(mixAvailability.id, subEntries[i].id));
+      }
+    }
+
+    return true;
+  }
+
+  async getLatestMatchWithMvp(): Promise<{ match: Match; mvpStats: MatchStats; mvpUser: User } | undefined> {
+    const [latestMatch] = await db.select().from(matches)
+      .orderBy(desc(matches.date))
+      .limit(1);
+    
+    if (!latestMatch) return undefined;
+
+    const stats = await db.select().from(matchStats)
+      .where(eq(matchStats.matchId, latestMatch.id));
+    
+    if (stats.length === 0) return undefined;
+
+    const mvp = stats.reduce((best, s) => {
+      return (s.mvps || 0) > (best.mvps || 0) ? s : best;
+    }, stats[0]);
+
+    const [mvpUser] = await db.select().from(users).where(eq(users.id, mvp.userId));
+    if (!mvpUser) return undefined;
+
+    return { match: latestMatch, mvpStats: mvp, mvpUser };
   }
 }
 

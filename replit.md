@@ -21,6 +21,8 @@ The sidebar navigation includes the following sections:
 
 3. **MIX** (Collapsible)
    - Escolher Time do Mix - Team balancing for matches
+   - Lista do Mix - WhatsApp-style availability list for daily mix games
+   - Veto de Mapas - Map veto system
 
 4. **Perfil de Usuário** - User profile with personal stats
 
@@ -53,6 +55,7 @@ The sidebar navigation includes the following sections:
 - `/dashboard` - Personal dashboard (Admin: AdminDashboard, Player: Dashboard)
 - `/perfil` - User profile page
 - `/mix/escolher-time` - Team selection for MIX
+- `/mix/disponibilidade` - Mix availability list
 - `/rankings` - Player leaderboards
 - `/piores-jogadores` - Worst player rankings
 - `/servidor/comandos` - Server commands

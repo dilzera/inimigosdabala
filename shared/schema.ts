@@ -234,6 +234,23 @@ export const monthlyRankings = pgTable("monthly_rankings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Mix availability list - players available for mix
+export const mixAvailability = pgTable("mix_availability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listDate: varchar("list_date").notNull(), // YYYY-MM-DD format
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  position: integer("position").notNull(), // 1-10 main, 11+ substitutes
+  isSub: boolean("is_sub").default(false).notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const mixAvailabilityRelations = relations(mixAvailability, ({ one }) => ({
+  user: one(users, {
+    fields: [mixAvailability.userId],
+    references: [users.id],
+  }),
+}));
+
 // Schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -382,6 +399,11 @@ export const insertCasinoTransactionSchema = createInsertSchema(casinoTransactio
   createdAt: true,
 });
 
+export const insertMixAvailabilitySchema = createInsertSchema(mixAvailability).omit({
+  id: true,
+  joinedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -406,3 +428,5 @@ export type BetItem = typeof betItems.$inferSelect;
 export type InsertBet = z.infer<typeof insertBetSchema>;
 export type CasinoTransaction = typeof casinoTransactions.$inferSelect;
 export type InsertCasinoTransaction = z.infer<typeof insertCasinoTransactionSchema>;
+export type MixAvailability = typeof mixAvailability.$inferSelect;
+export type InsertMixAvailability = z.infer<typeof insertMixAvailabilitySchema>;
