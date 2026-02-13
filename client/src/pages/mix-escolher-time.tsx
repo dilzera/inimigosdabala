@@ -65,6 +65,7 @@ export default function MixEscolherTime() {
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [currentVetoTeam, setCurrentVetoTeam] = useState<1 | 2>(1);
   const [sortOrder, setSortOrder] = useState<"alphabetical" | "kd">("kd");
+  const [preselectedApplied, setPreselectedApplied] = useState(false);
 
   useEffect(() => {
     if (users.length > 0 && !initialized) {
@@ -74,8 +75,20 @@ export default function MixEscolherTime() {
       });
       setPlayerLevels(initialLevels);
       setInitialized(true);
+
+      if (!preselectedApplied) {
+        const params = new URLSearchParams(window.location.search);
+        const playerIds = params.get("players");
+        if (playerIds) {
+          const ids = playerIds.split(",").filter(id => users.some(u => u.id === id));
+          if (ids.length > 0) {
+            setSelectedPlayerIds(new Set(ids));
+          }
+        }
+        setPreselectedApplied(true);
+      }
     }
-  }, [users, initialized]);
+  }, [users, initialized, preselectedApplied]);
 
   const getPlayerName = (player: User): string => {
     if (player.nickname) return player.nickname;

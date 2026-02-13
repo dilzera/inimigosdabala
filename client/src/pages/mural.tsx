@@ -12,9 +12,14 @@ import {
   Sparkles, Star, Trophy, Users, Calendar, 
   TrendingUp, ArrowRight, User, Gamepad2, 
   CheckCircle, Link2, Megaphone, Award, Target,
-  DollarSign
+  DollarSign, ExternalLink, Handshake
 } from "lucide-react";
+import { SiInstagram } from "react-icons/si";
 import type { User as UserType, Match, MatchStats } from "@shared/schema";
+import skinsLabLogo from "@assets/skins_lab_logo1_1771007653832.png";
+import thomaziniLogo from "@assets/thomazini_logo_1771007598394.jpeg";
+import dukinhaLogo from "@assets/dukinha_logo_1771007595272.jpg";
+import zenthorLogo from "@assets/zenthor_logo_1771007572398.png";
 
 export default function Mural() {
   const { user } = useAuth();
@@ -410,6 +415,96 @@ export default function Mural() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+
+      <Card data-testid="card-apoiadores">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Handshake className="h-5 w-5 text-primary" />
+            Apoiadores
+          </CardTitle>
+          <CardDescription>Marcas que apoiam a comunidade Inimigos da Bala</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div
+              className="flex flex-col items-center gap-3 p-4 rounded-lg border"
+              data-testid="card-sponsor-skinslab"
+            >
+              <img src={skinsLabLogo} alt="Skins Lab" className="h-16 w-auto object-contain rounded-md" />
+              <span className="font-semibold text-sm">Skins Lab</span>
+              <span className="text-xs text-muted-foreground text-center">Artesanato de Skins de CS2</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://www.skinslab.com.br/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="link-sponsor-skinslab-site"
+                >
+                  <Badge variant="outline" className="text-xs">
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Site
+                  </Badge>
+                </a>
+                <a
+                  href="https://www.instagram.com/skinslab/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="link-sponsor-skinslab-instagram"
+                >
+                  <Badge variant="outline" className="text-xs">
+                    <SiInstagram className="h-3 w-3 mr-1" />
+                    Instagram
+                  </Badge>
+                </a>
+              </div>
+            </div>
+
+            <a
+              href="https://www.instagram.com/thomazini.sp/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-3 p-4 rounded-lg border hover-elevate"
+              data-testid="link-sponsor-thomazini"
+            >
+              <img src={thomaziniLogo} alt="Supermercados Thomazini" className="h-16 w-16 object-contain rounded-full" />
+              <span className="font-semibold text-sm">Supermercados Thomazini</span>
+              <Badge variant="outline" className="text-xs">
+                <SiInstagram className="h-3 w-3 mr-1" />
+                Instagram
+              </Badge>
+            </a>
+
+            <a
+              href="https://www.dukinhacamisas.com.br/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-3 p-4 rounded-lg border hover-elevate"
+              data-testid="link-sponsor-dukinha"
+            >
+              <img src={dukinhaLogo} alt="Dukinha Camisas" className="h-16 w-auto object-contain rounded-md" />
+              <span className="font-semibold text-sm">Dukinha Camisas</span>
+              <span className="text-xs text-muted-foreground text-center">Camisas de Time</span>
+              <Badge variant="outline" className="text-xs">
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Site
+              </Badge>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-center gap-2 py-4 border-t" data-testid="footer-built-by">
+        <span className="text-xs text-muted-foreground">Built by</span>
+        <a
+          href="https://ZenthorTech.replit.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 hover-elevate rounded-md px-2 py-1"
+        >
+          <img src={zenthorLogo} alt="Zenthor Tech" className="h-6 w-6 rounded-md object-contain" />
+          <span className="text-xs font-semibold text-primary">Zenthor Tech</span>
+        </a>
       </div>
     </div>
   );

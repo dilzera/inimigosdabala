@@ -6,9 +6,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import {
   Users, Clock, UserPlus, UserMinus, AlertTriangle,
-  ChevronLeft, ChevronRight, CalendarDays, Shield
+  ChevronLeft, ChevronRight, CalendarDays, Shield, Swords
 } from "lucide-react";
 import type { User as UserType, MixAvailability } from "@shared/schema";
 
@@ -45,6 +46,7 @@ function addDays(dateStr: string, days: number): string {
 export default function MixDisponibilidade() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const today = getTodayDate();
   const initialDate = today;
 
@@ -303,6 +305,20 @@ export default function MixDisponibilidade() {
           </div>
         </CardContent>
       </Card>
+
+      {mainPlayers.length >= 2 && (
+        <Button
+          onClick={() => {
+            const playerIds = mainPlayers.map(e => e.userId).join(",");
+            setLocation(`/mix/escolher-time?players=${playerIds}`);
+          }}
+          className="w-full"
+          data-testid="button-go-team-selection"
+        >
+          <Swords className="h-4 w-4 mr-2" />
+          Escolher Times com Jogadores da Lista ({mainPlayers.length})
+        </Button>
+      )}
 
       <Card className="border-yellow-500/20 bg-yellow-500/5" data-testid="card-rules">
         <CardHeader className="pb-2">
