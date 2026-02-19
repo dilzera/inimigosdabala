@@ -341,67 +341,69 @@ export default function Mural() {
         </CardContent>
       </Card>
 
+      <Card className="border-primary/30 bg-primary/5" data-testid="card-steamid-reminder">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="h-5 w-5 text-primary" />
+            Atualize seu Perfil com o SteamID64
+          </CardTitle>
+          <CardDescription>
+            Todos os jogadores devem cadastrar o SteamID64 no perfil para que suas estatísticas sejam vinculadas automaticamente!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-sm font-medium text-primary">
+              Sem o SteamID64, suas partidas não serão contabilizadas no sistema. 
+              Acesse seu perfil e cadastre agora!
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className={`flex items-center justify-between p-3 rounded-lg ${hasSteamId ? 'bg-green-500/10 border border-green-500/20' : 'bg-destructive/10 border border-destructive/20'}`}>
+              <div className="flex items-center gap-3">
+                <Link2 className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <span className="font-medium">SteamID64</span>
+                  <p className="text-xs text-muted-foreground">Vincula suas partidas</p>
+                </div>
+              </div>
+              {hasSteamId ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : (
+                <Badge variant="destructive">Pendente</Badge>
+              )}
+            </div>
+
+            <div className={`flex items-center justify-between p-3 rounded-lg ${hasNickname ? 'bg-green-500/10 border border-green-500/20' : 'bg-destructive/10 border border-destructive/20'}`}>
+              <div className="flex items-center gap-3">
+                <Gamepad2 className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <span className="font-medium">Nickname do Jogo</span>
+                  <p className="text-xs text-muted-foreground">Nome no CS2</p>
+                </div>
+              </div>
+              {hasNickname ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : (
+                <Badge variant="destructive">Pendente</Badge>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center">
+            Não sabe como encontrar seu SteamID64? Acesse a página "Como encontrar o SteamID64" no menu Servidor.
+          </p>
+
+          <Button onClick={() => setLocation("/perfil")} className="w-full" data-testid="button-update-profile">
+            <User className="h-4 w-4 mr-2" />
+            {needsProfileUpdate ? "Atualizar Perfil Agora" : "Ir para Meu Perfil"}
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 md:grid-cols-2">
-        {needsProfileUpdate && (
-          <Card className="border-primary/30 bg-primary/5 md:col-span-2" data-testid="card-profile-update">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-primary" />
-                Atualize seu Perfil
-              </CardTitle>
-              <CardDescription>
-                Precisamos de algumas informações para melhorar sua experiência
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <p className="text-sm font-medium text-primary">
-                  Para facilitar a gestão de acessos e vincular suas estatísticas, 
-                  precisamos do seu SteamID64 e nickname do jogo!
-                </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className={`flex items-center justify-between p-3 rounded-lg ${hasSteamId ? 'bg-green-500/10 border border-green-500/20' : 'bg-muted/50'}`}>
-                  <div className="flex items-center gap-3">
-                    <Link2 className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <span className="font-medium">SteamID64</span>
-                      <p className="text-xs text-muted-foreground">Vincula suas partidas</p>
-                    </div>
-                  </div>
-                  {hasSteamId ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <Badge variant="destructive">Pendente</Badge>
-                  )}
-                </div>
-
-                <div className={`flex items-center justify-between p-3 rounded-lg ${hasNickname ? 'bg-green-500/10 border border-green-500/20' : 'bg-muted/50'}`}>
-                  <div className="flex items-center gap-3">
-                    <Gamepad2 className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <span className="font-medium">Nickname do Jogo</span>
-                      <p className="text-xs text-muted-foreground">Nome no CS2</p>
-                    </div>
-                  </div>
-                  {hasNickname ? (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <Badge variant="destructive">Pendente</Badge>
-                  )}
-                </div>
-              </div>
-
-              <Button onClick={() => setLocation("/perfil")} className="w-full" data-testid="button-update-profile">
-                <User className="h-4 w-4 mr-2" />
-                Atualizar Perfil
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         {latestMvp && mvpName && (
           <Card className="border-blue-500/30 bg-blue-500/5" data-testid="card-mvp-last-match">
             <CardHeader>

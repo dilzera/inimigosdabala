@@ -41,18 +41,32 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+export function isUnauthorizedError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return /^401/.test(error.message);
+  }
+  return false;
+}
+
+export const RELOGIN_MESSAGE = "Sua sessão expirou. Faça login novamente para continuar.";
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: true, // Recarrega dados quando usuário volta à aba
-      staleTime: 1000 * 60 * 2, // Dados ficam "frescos" por 2 minutos
-      gcTime: 1000 * 60 * 10, // Mantém cache por 10 minutos
+      refetchOnWindowFocus: true,
+      staleTime: 1000 * 60 * 2,
+      gcTime: 1000 * 60 * 10,
       retry: false,
     },
     mutations: {
       retry: false,
+      onError: (error: Error) => {
+        if (isUnauthorizedError(error)) {
+          window.dispatchEvent(new CustomEvent("auth:session-expired"));
+        }
+      },
     },
   },
 });
