@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   User, Trophy, Target, Crosshair, Shield, Star, TrendingUp, 
-  Zap, Award, Eye, Link2, Check, AlertCircle, Edit2, Save, X
+  Zap, Award, Eye, Link2, Check, AlertCircle, Edit2, Save, X,
+  Medal, CalendarDays, Handshake
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { User as UserType } from "@shared/schema";
 
 export default function Perfil() {
   const { user } = useAuth();
@@ -39,6 +41,78 @@ export default function Perfil() {
       });
     }
   }, [user]);
+
+  const { data: allUsers = [] } = useQuery<UserType[]>({
+    queryKey: ['/api/users'],
+  });
+
+  const { data: monthlyData } = useQuery<{
+    month: number;
+    year: number;
+    monthName: string;
+    players: Array<{
+      userId: string;
+      kills: number;
+      deaths: number;
+      assists: number;
+      headshots: number;
+      damage: number;
+      mvps: number;
+      matchesPlayed: number;
+      matchesWon: number;
+      total5ks: number;
+      total4ks: number;
+      total3ks: number;
+    }>;
+  }>({
+    queryKey: ['/api/stats/monthly'],
+  });
+
+  const generalRanking = (() => {
+    if (!user || allUsers.length === 0) return { position: 0, total: 0 };
+    const sorted = [...allUsers]
+      .filter(u => u.totalMatches > 0)
+      .sort((a, b) => b.skillRating - a.skillRating);
+    const pos = sorted.findIndex(u => u.id === user.id);
+    return { position: pos >= 0 ? pos + 1 : 0, total: sorted.length };
+  })();
+
+  const getMonthlySkillRating = (p: { kills: number; deaths: number; headshots: number; damage: number; matchesPlayed: number; matchesWon: number; mvps: number; total5ks?: number; total4ks?: number; total3ks?: number }) => {
+    const kd = p.deaths > 0 ? p.kills / p.deaths : p.kills;
+    const hsPercent = p.kills > 0 ? (p.headshots / p.kills) * 100 : 0;
+    const winRate = p.matchesPlayed > 0 ? (p.matchesWon / p.matchesPlayed) * 100 : 0;
+    const estimatedRounds = p.matchesPlayed * 24;
+    const adr = estimatedRounds > 0 ? p.damage / estimatedRounds : 0;
+    let rating = 1000;
+    rating += (kd - 1) * 150;
+    rating += (hsPercent - 30) * 2;
+    rating += (adr - 70) * 1.5;
+    rating += (winRate - 50) * 3;
+    rating += p.mvps * 2;
+    rating += (p.total5ks || 0) * 30;
+    rating += (p.total4ks || 0) * 15;
+    rating += (p.total3ks || 0) * 5;
+    return Math.max(100, Math.min(3000, Math.round(rating)));
+  };
+
+  const monthlyRanking = (() => {
+    if (!user || !monthlyData?.players) return { position: 0, total: 0, kills: 0, deaths: 0, assists: 0, mvps: 0, matchesPlayed: 0, damage: 0, headshots: 0 };
+    const eligible = monthlyData.players.filter(p => p.matchesPlayed >= 3);
+    const sorted = [...eligible].sort((a, b) => getMonthlySkillRating(b) - getMonthlySkillRating(a));
+    const pos = sorted.findIndex(p => p.userId === user.id);
+    const myStats = monthlyData.players.find(p => p.userId === user.id);
+    return {
+      position: pos >= 0 ? pos + 1 : 0,
+      total: sorted.length,
+      kills: myStats?.kills || 0,
+      deaths: myStats?.deaths || 0,
+      assists: myStats?.assists || 0,
+      mvps: myStats?.mvps || 0,
+      matchesPlayed: myStats?.matchesPlayed || 0,
+      damage: myStats?.damage || 0,
+      headshots: myStats?.headshots || 0,
+    };
+  })();
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: typeof editForm) => {
@@ -290,6 +364,91 @@ export default function Perfil() {
         </Card>
 
         <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Medal className="h-5 w-5 text-primary" />
+              Rankings e Destaques
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-background/50 rounded-lg" data-testid="card-ranking-geral">
+                <Trophy className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
+                <div className="text-2xl font-bold font-mono">
+                  {generalRanking.position > 0 ? `${generalRanking.position}°` : "-"}
+                </div>
+                <div className="text-sm text-muted-foreground">Ranking Geral</div>
+                {generalRanking.total > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">de {generalRanking.total} jogadores</div>
+                )}
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-lg" data-testid="card-ranking-mensal">
+                <CalendarDays className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+                <div className="text-2xl font-bold font-mono">
+                  {monthlyRanking.position > 0 ? `${monthlyRanking.position}°` : "-"}
+                </div>
+                <div className="text-sm text-muted-foreground">Ranking Mensal</div>
+                {monthlyData?.monthName && (
+                  <div className="text-xs text-muted-foreground mt-1 capitalize">{monthlyData.monthName}</div>
+                )}
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-lg" data-testid="card-skill-rating">
+                <TrendingUp className="h-8 w-8 mx-auto mb-2 text-primary" />
+                <div className="text-2xl font-bold font-mono">{user.skillRating}</div>
+                <div className="text-sm text-muted-foreground">Skill Rating</div>
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-lg" data-testid="card-mvps-total">
+                <Star className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
+                <div className="text-2xl font-bold font-mono">{user.totalMvps}</div>
+                <div className="text-sm text-muted-foreground">MVPs Total</div>
+                {monthlyRanking.mvps > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">{monthlyRanking.mvps} este mês</div>
+                )}
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-lg" data-testid="card-assists-total">
+                <Handshake className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                <div className="text-2xl font-bold font-mono">{user.totalAssists}</div>
+                <div className="text-sm text-muted-foreground">Assistências Total</div>
+                {monthlyRanking.assists > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">{monthlyRanking.assists} este mês</div>
+                )}
+              </div>
+              <div className="text-center p-4 bg-background/50 rounded-lg" data-testid="card-kd-ratio">
+                <Crosshair className="h-8 w-8 mx-auto mb-2 text-primary" />
+                <div className="text-2xl font-bold font-mono">{kdRatio}</div>
+                <div className="text-sm text-muted-foreground">K/D Ratio</div>
+              </div>
+            </div>
+
+            {monthlyRanking.matchesPlayed > 0 && (
+              <div className="mt-4 p-3 rounded-lg border border-border/50 bg-muted/30">
+                <div className="text-sm font-medium mb-2 capitalize">Resumo Mensal - {monthlyData?.monthName}</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Partidas</span>
+                    <span className="font-mono font-bold">{monthlyRanking.matchesPlayed}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Kills</span>
+                    <span className="font-mono font-bold text-green-500">{monthlyRanking.kills}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Deaths</span>
+                    <span className="font-mono font-bold text-red-500">{monthlyRanking.deaths}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">HS</span>
+                    <span className="font-mono font-bold text-yellow-500">{monthlyRanking.headshots}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />

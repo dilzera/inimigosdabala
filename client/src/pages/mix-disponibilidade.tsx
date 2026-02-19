@@ -8,7 +8,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import {
   Users, Clock, UserPlus, UserMinus, AlertTriangle,
   ChevronLeft, ChevronRight, CalendarDays, Shield, Swords,
@@ -380,9 +380,9 @@ export default function MixDisponibilidade() {
                           {getInitials(player.user)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-medium flex-1" data-testid={`text-player-name-main-${i + 1}`}>
+                      <Link href={`/jogador/${player.userId}`} className="font-medium flex-1 underline decoration-muted-foreground/30 underline-offset-2 cursor-pointer" data-testid={`link-player-main-${i + 1}`}>
                         {player.user.nickname || player.user.firstName || "Jogador"}
-                      </span>
+                      </Link>
                       {confirmMode && !confirmedPlayerIds.has(player.userId) && (
                         <Badge variant="destructive">Faltou</Badge>
                       )}
@@ -445,9 +445,9 @@ export default function MixDisponibilidade() {
                       {getInitials(player.user)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="font-medium flex-1" data-testid={`text-player-name-sub-${i + 1}`}>
+                  <Link href={`/jogador/${player.userId}`} className="font-medium flex-1 underline decoration-muted-foreground/30 underline-offset-2 cursor-pointer" data-testid={`link-player-sub-${i + 1}`}>
                     {player.user.nickname || player.user.firstName || "Jogador"}
-                  </span>
+                  </Link>
                   {player.userId === user?.id && (
                     <Badge variant="default">Você</Badge>
                   )}
