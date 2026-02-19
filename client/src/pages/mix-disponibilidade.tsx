@@ -465,20 +465,17 @@ export default function MixDisponibilidade() {
                 </div>
               ))
             )}
-            {subPlayers.length > 0 && subPlayers.length < 4 && (
-              Array.from({ length: 4 - subPlayers.length }, (_, i) => (
-                <div
-                  key={`empty-sub-${i}`}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 border border-dashed border-muted-foreground/20"
-                >
-                  <span className="w-8 text-center font-mono font-bold text-lg text-muted-foreground">
-                    {subPlayers.length + i + 1}
-                  </span>
-                  <span className="text-muted-foreground text-sm italic flex-1">
-                    Vaga disponível
-                  </span>
-                </div>
-              ))
+            {subPlayers.length > 0 && (
+              <div
+                className="flex items-center gap-3 p-3 rounded-lg bg-muted/20 border border-dashed border-muted-foreground/20"
+              >
+                <span className="w-8 text-center font-mono font-bold text-lg text-muted-foreground">
+                  {subPlayers.length + 1}
+                </span>
+                <span className="text-muted-foreground text-sm italic flex-1">
+                  Vaga disponível
+                </span>
+              </div>
             )}
           </div>
         </CardContent>
