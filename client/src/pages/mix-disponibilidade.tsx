@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,6 +53,8 @@ export default function MixDisponibilidade() {
   const [, setLocation] = useLocation();
   const [confirmMode, setConfirmMode] = useState(false);
   const [confirmedPlayerIds, setConfirmedPlayerIds] = useState<Set<string>>(new Set());
+  const [adminAddUserId, setAdminAddUserId] = useState<string>("");
+  const [adminAddAsSub, setAdminAddAsSub] = useState(false);
   const today = getTodayDate();
   const initialDate = today;
 
@@ -144,6 +147,26 @@ export default function MixDisponibilidade() {
     },
     onError: (error: any) => {
       toast({ title: "Erro", description: error.message || "Não foi possível remover o jogador", variant: "destructive" });
+    },
+  });
+
+  const { data: allUsers = [] } = useQuery<UserType[]>({
+    queryKey: ['/api/users'],
+    enabled: !!user?.isAdmin,
+  });
+
+  const adminAddMutation = useMutation({
+    mutationFn: async ({ userId, isSub }: { userId: string; isSub: boolean }) => {
+      return apiRequest('POST', '/api/mix/availability/admin-add', { listDate: currentDate, userId, isSub });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/mix/availability', currentDate] });
+      setAdminAddUserId("");
+      setAdminAddAsSub(false);
+      toast({ title: "Jogador adicionado", description: "Jogador adicionado na lista pelo admin." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro", description: error.message || "Não foi possível adicionar o jogador", variant: "destructive" });
     },
   });
 
@@ -293,6 +316,46 @@ export default function MixDisponibilidade() {
               <UserMinus className="h-4 w-4 mr-2" />
               Sair da Lista
             </Button>
+          )}
+
+          {user?.isAdmin && (
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Adicionar jogador (Admin)</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Select value={adminAddUserId} onValueChange={setAdminAddUserId}>
+                  <SelectTrigger className="flex-1" data-testid="select-admin-add-player">
+                    <SelectValue placeholder="Selecionar jogador..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allUsers
+                      .filter(u => !mixList.some(e => e.userId === u.id))
+                      .sort((a, b) => (a.nickname || a.firstName || "").localeCompare(b.nickname || b.firstName || ""))
+                      .map(u => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.nickname || u.firstName || u.email || "Jogador"}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Select value={adminAddAsSub ? "sub" : "main"} onValueChange={(v) => setAdminAddAsSub(v === "sub")}>
+                  <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-admin-add-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="main">Titular</SelectItem>
+                    <SelectItem value="sub">Suplente</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => adminAddUserId && adminAddMutation.mutate({ userId: adminAddUserId, isSub: adminAddAsSub })}
+                  disabled={!adminAddUserId || adminAddMutation.isPending}
+                  data-testid="button-admin-add-player"
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Adicionar
+                </Button>
+              </div>
+            </div>
           )}
 
           {user?.isAdmin && mainPlayers.length > 0 && (

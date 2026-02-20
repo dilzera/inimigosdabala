@@ -1629,6 +1629,44 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: add a player to the mix list
+  app.post('/api/mix/availability/admin-add', isAuthenticated, async (req: any, res) => {
+    try {
+      const adminId = req.user.claims.sub;
+      const currentUser = await storage.getUser(adminId);
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Apenas admins podem adicionar jogadores na lista" });
+      }
+
+      const addSchema = z.object({
+        listDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve estar no formato YYYY-MM-DD"),
+        userId: z.string().min(1),
+        isSub: z.boolean().optional().default(false),
+      });
+
+      const parsed = addSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Dados inválidos" });
+      }
+
+      const { listDate, userId, isSub } = parsed.data;
+
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      const entry = await storage.joinMixList(userId, listDate, isSub);
+      if (!entry) {
+        return res.status(400).json({ message: "Jogador já está na lista deste dia" });
+      }
+      res.json(entry);
+    } catch (error) {
+      console.error("Error admin adding to mix list:", error);
+      res.status(500).json({ message: "Erro ao adicionar jogador na lista" });
+    }
+  });
+
   // Admin: remove a player from the mix list without penalty
   app.post('/api/mix/availability/admin-remove', isAuthenticated, async (req: any, res) => {
     try {
