@@ -766,10 +766,8 @@ export async function registerRoutes(
             ps.seenMatches.add(match.id);
             ps.matchesPlayed += 1;
             
-            // Check if player won this match
-            const isTeam1 = stat.team?.toLowerCase().includes('ct') || stat.team === 'team1';
-            const team1Won = match.team1Score > match.team2Score;
-            if ((isTeam1 && team1Won) || (!isTeam1 && !team1Won)) {
+            // Check if player won this match by comparing their team with winnerTeam
+            if (match.winnerTeam && stat.team === match.winnerTeam) {
               ps.matchesWon += 1;
             }
           }
@@ -1801,9 +1799,8 @@ export async function registerRoutes(
           if (!ps.seenMatches.has(match.id)) {
             ps.seenMatches.add(match.id);
             ps.matchesPlayed += 1;
-            const isTeam1 = stat.team?.toLowerCase().includes('ct') || stat.team === 'team1';
-            const team1Won = match.team1Score > match.team2Score;
-            if ((isTeam1 && team1Won) || (!isTeam1 && !team1Won)) {
+            // Check if player won this match by comparing their team with winnerTeam
+            if (match.winnerTeam && stat.team === match.winnerTeam) {
               ps.matchesWon += 1;
             }
           }
