@@ -469,15 +469,14 @@ export async function registerRoutes(
         finalTeam2Score = Math.round(t2Kills / 5);
       }
 
-      // Derive winner team if not provided, based on scores
-      let finalWinnerTeam: string | null = winnerTeam || null;
-      if (!finalWinnerTeam && finalTeam1Score !== undefined && finalTeam2Score !== undefined) {
+      // Always derive winner team from scores to ensure correctness
+      let finalWinnerTeam: string | null = null;
+      if (finalTeam1Score !== undefined && finalTeam2Score !== undefined) {
         if (finalTeam1Score > finalTeam2Score) {
           finalWinnerTeam = team1Name;
         } else if (finalTeam2Score > finalTeam1Score) {
           finalWinnerTeam = team2Name;
         }
-        // If tied, leave as null
       }
 
       // Create match with winner info
