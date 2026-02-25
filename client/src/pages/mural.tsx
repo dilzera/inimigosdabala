@@ -589,6 +589,62 @@ export default function Mural() {
         </Card>
       </div>
 
+      <Card className="border-2 border-green-500/40 bg-gradient-to-br from-green-500/10 via-green-500/5 to-transparent" data-testid="card-gamers-club">
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Trophy className="h-6 w-6 text-green-500" />
+              Representantes Inimigos da Bala
+              <Trophy className="h-6 w-6 text-green-500" />
+            </CardTitle>
+            <Badge variant="default" className="bg-green-600">
+              <Sparkles className="h-3 w-3 mr-1" />
+              A partir de Março
+            </Badge>
+          </div>
+          <CardDescription className="text-base">
+            Sua chance de representar o time em campeonatos oficiais!
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 space-y-3">
+            <p className="text-sm leading-relaxed">
+              A partir do mês de <span className="font-bold text-green-500">Março</span>, os <span className="font-bold text-primary">5 melhores jogadores do mês</span> no ranking mensal serão convidados a representar o time <span className="font-bold">Inimigos da Bala</span> em campeonatos da <span className="font-bold text-green-500">Gamers Club</span>!
+            </p>
+            <p className="text-sm leading-relaxed">
+              Essa é a oportunidade que muitos estavam esperando. Se você sempre quis jogar em um nível mais alto, se provar contra outros times e mostrar do que é capaz, agora é a hora. Dê o seu máximo em cada partida, cada round conta. O ranking mensal vai definir quem vai entrar em campo representando a nossa comunidade.
+            </p>
+            <p className="text-sm leading-relaxed font-medium text-primary">
+              Não importa se você é veterano ou se está chegando agora. O ranking é atualizado todo mês e todos partem do zero. Mostre consistência, dedicação e habilidade. Os 5 melhores vão carregar o nome Inimigos da Bala nos campeonatos!
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+              <Trophy className="h-6 w-6 text-yellow-500 mb-1" />
+              <span className="text-lg font-bold font-mono">TOP 5</span>
+              <span className="text-xs text-muted-foreground">Melhores do Mês</span>
+            </div>
+            <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+              <Gamepad2 className="h-6 w-6 text-green-500 mb-1" />
+              <span className="text-sm font-bold">Gamers Club</span>
+              <span className="text-xs text-muted-foreground">Campeonatos</span>
+            </div>
+            <div className="flex flex-col items-center p-3 rounded-lg bg-muted/50 text-center">
+              <Star className="h-6 w-6 text-primary mb-1" />
+              <span className="text-sm font-bold">Skill Rating</span>
+              <span className="text-xs text-muted-foreground">Critério</span>
+            </div>
+          </div>
+
+          <Button onClick={() => setLocation("/ranking-mensal")} className="w-full" data-testid="button-go-ranking-gc">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Ver Ranking Mensal
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card data-testid="card-apoiadores">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

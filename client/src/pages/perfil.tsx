@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { User as UserType } from "@shared/schema";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import type { User as UserType, MonthlyRanking } from "@shared/schema";
 
 export default function Perfil() {
   const { user } = useAuth();
@@ -67,6 +68,39 @@ export default function Perfil() {
   }>({
     queryKey: ['/api/stats/monthly'],
   });
+
+  const { data: monthlyRankingsHistory = [] } = useQuery<MonthlyRanking[]>({
+    queryKey: ["/api/monthly-rankings"],
+  });
+
+  const MONTH_NAMES_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+  const skillRatingEvolution = useMemo(() => {
+    if (!user || monthlyRankingsHistory.length === 0) return [];
+
+    const now = new Date();
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+
+    const relevant = monthlyRankingsHistory
+      .filter(r => {
+        const rDate = new Date(r.year, r.month - 1, 1);
+        return rDate >= threeMonthsAgo;
+      })
+      .sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return a.month - b.month;
+      });
+
+    return relevant.map(r => {
+      const rankings = r.rankings as Array<{ id: string; skillRating: number; rank: number; name?: string }>;
+      const playerEntry = rankings.find(e => e.id === user.id);
+      return {
+        month: `${MONTH_NAMES_SHORT[r.month - 1]}/${r.year}`,
+        skillRating: playerEntry?.skillRating ?? null,
+        position: playerEntry?.rank ?? null,
+      };
+    }).filter(d => d.skillRating !== null);
+  }, [user, monthlyRankingsHistory]);
 
   const generalRanking = (() => {
     if (!user || allUsers.length === 0) return { position: 0, total: 0 };
@@ -446,6 +480,77 @@ export default function Perfil() {
           </CardContent>
         </Card>
       </div>
+
+      {skillRatingEvolution.length > 0 && (
+        <Card data-testid="card-skill-evolution">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Evolução do Skill Rating
+            </CardTitle>
+            <CardDescription>
+              Seu desempenho no ranking geral nos últimos meses
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={skillRatingEvolution} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12 }}
+                    className="fill-muted-foreground"
+                  />
+                  <YAxis
+                    domain={['dataMin - 50', 'dataMax + 50']}
+                    tick={{ fontSize: 12 }}
+                    className="fill-muted-foreground"
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                    }}
+                    formatter={(value: number, _name: string, props: any) => {
+                      const pos = props.payload?.position;
+                      return [
+                        <span key="v" className="font-mono font-bold">{value} SR {pos ? `(${pos}° lugar)` : ''}</span>,
+                        'Skill Rating'
+                      ];
+                    }}
+                  />
+                  <ReferenceLine y={1000} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" label={{ value: "Base (1000)", position: "insideTopRight", fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                  <Line
+                    type="monotone"
+                    dataKey="skillRating"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={3}
+                    dot={{ r: 6, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                    activeDot={{ r: 8, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex items-center justify-center gap-4 mt-3 text-sm text-muted-foreground flex-wrap">
+              {skillRatingEvolution.length >= 2 && (() => {
+                const first = skillRatingEvolution[0].skillRating as number;
+                const last = skillRatingEvolution[skillRatingEvolution.length - 1].skillRating as number;
+                const diff = last - first;
+                return (
+                  <Badge variant={diff >= 0 ? "default" : "destructive"} className="font-mono">
+                    <TrendingUp className={`h-3 w-3 mr-1 ${diff < 0 ? "rotate-180" : ""}`} />
+                    {diff >= 0 ? "+" : ""}{diff} SR no período
+                  </Badge>
+                );
+              })()}
+              <span className="text-xs">Dados dos últimos 3 meses salvos pelo admin</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-3">
