@@ -2,12 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
-import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp, UserCheck, ArrowRight, Crown, Map as MapIcon, X, Check, ArrowUpDown, SortAsc } from "lucide-react";
+import { useState, useEffect, useCallback, memo } from "react";
+import { Swords, Users, Shuffle, Trophy, Target, RefreshCw, Star, TrendingUp, UserCheck, ArrowRight, Crown, Map as MapIcon, X, Check, ArrowUpDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
@@ -25,10 +24,55 @@ const kdCache: Map<string, number> = new Map();
 function getCachedKd(player: User): number {
   const cached = kdCache.get(player.id);
   if (cached !== undefined) return cached;
-  
   const kd = getKdRating(player);
   kdCache.set(player.id, kd);
   return kd;
+}
+
+function calculateAutoLevel(player: User): number {
+  const totalMatches = (player.matchesWon || 0) + (player.matchesLost || 0);
+  if (totalMatches < 1) return 5;
+
+  let score = 0;
+
+  const kd = getKdRating(player);
+  if (kd >= 1.5) score += 3;
+  else if (kd >= 1.2) score += 2.5;
+  else if (kd >= 1.0) score += 2;
+  else if (kd >= 0.8) score += 1;
+  else score += 0;
+
+  const totalShots = player.shotsFired || 0;
+  const headshots = player.totalHeadshots || 0;
+  const totalKills = player.totalKills || 0;
+  const hsPercent = totalKills > 0 ? (headshots / totalKills) * 100 : 0;
+  if (hsPercent >= 55) score += 2;
+  else if (hsPercent >= 45) score += 1.5;
+  else if (hsPercent >= 35) score += 1;
+  else if (hsPercent >= 25) score += 0.5;
+
+  const totalRounds = player.roundsPlayed || 1;
+  const totalDamage = player.totalDamage || 0;
+  const adr = totalRounds > 0 ? totalDamage / totalRounds : 0;
+  if (adr >= 90) score += 2;
+  else if (adr >= 75) score += 1.5;
+  else if (adr >= 60) score += 1;
+  else if (adr >= 45) score += 0.5;
+
+  const winRate = totalMatches > 0 ? ((player.matchesWon || 0) / totalMatches) * 100 : 50;
+  if (winRate >= 60) score += 1.5;
+  else if (winRate >= 50) score += 1;
+  else if (winRate >= 40) score += 0.5;
+
+  const aces = player.fiveK || 0;
+  const fourK = player.fourK || 0;
+  const clutch1v2 = player.oneV2Wins || 0;
+  if (aces >= 1 || fourK >= 3 || clutch1v2 >= 2) score += 1.5;
+  else if (fourK >= 1 || clutch1v2 >= 1) score += 1;
+  else if ((player.threeK || 0) >= 3) score += 0.5;
+
+  const level = Math.round(score);
+  return Math.max(1, Math.min(10, level));
 }
 
 const MAPS = [
@@ -44,6 +88,277 @@ const MAPS = [
   { name: "Cobble", abbr: "CBL", color: "text-stone-500", bg: "bg-stone-500/20" },
   { name: "Cache", abbr: "CCH", color: "text-emerald-500", bg: "bg-emerald-500/20" },
 ];
+
+function getPlayerName(player: User): string {
+  if (player.nickname) return player.nickname;
+  if (player.firstName) return player.firstName;
+  if (player.email) return player.email;
+  return "Jogador";
+}
+
+function getLevelColor(level: number) {
+  if (level <= 3) return "text-red-500";
+  if (level <= 5) return "text-yellow-500";
+  if (level <= 7) return "text-blue-500";
+  return "text-green-500";
+}
+
+function getLevelBadgeVariant(level: number): "destructive" | "secondary" | "default" | "outline" {
+  if (level <= 3) return "destructive";
+  if (level <= 5) return "secondary";
+  if (level <= 7) return "default";
+  return "default";
+}
+
+function getKdColor(kd: number) {
+  if (kd < 0.8) return "text-red-500";
+  if (kd < 1.0) return "text-yellow-500";
+  if (kd < 1.3) return "text-blue-500";
+  return "text-green-500";
+}
+
+const LevelSlider = memo(function LevelSlider({
+  playerId,
+  level,
+  onLevelChange,
+}: {
+  playerId: string;
+  level: number;
+  onLevelChange: (playerId: string, level: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+      <span className="text-xs text-muted-foreground w-12 shrink-0">Nível:</span>
+      <input
+        type="range"
+        min={1}
+        max={10}
+        step={1}
+        value={level}
+        onChange={(e) => onLevelChange(playerId, parseInt(e.target.value, 10))}
+        className="flex-1 h-2 accent-primary cursor-pointer"
+        data-testid={`slider-level-${playerId}`}
+      />
+      <span className={`font-mono font-bold w-6 text-center shrink-0 ${getLevelColor(level)}`}>
+        {level}
+      </span>
+    </div>
+  );
+});
+
+const SelectionPlayerCard = memo(function SelectionPlayerCard({
+  player,
+  isSelected,
+  level,
+  isAdmin,
+  onToggle,
+  onLevelChange,
+}: {
+  player: User;
+  isSelected: boolean;
+  level: number;
+  isAdmin: boolean;
+  onToggle: (playerId: string) => void;
+  onLevelChange: (playerId: string, level: number) => void;
+}) {
+  const kd = getCachedKd(player);
+  const playerName = getPlayerName(player);
+
+  return (
+    <div
+      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+        isSelected
+          ? "bg-primary/10 border-primary"
+          : "bg-background/50 hover-elevate"
+      }`}
+      onClick={() => onToggle(player.id)}
+      data-testid={`selection-card-${player.id}`}
+    >
+      <div className="flex items-center gap-3">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggle(player.id)}
+          onClick={(e) => e.stopPropagation()}
+          data-testid={`checkbox-${player.id}`}
+        />
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarImage src={player.profileImageUrl || undefined} />
+          <AvatarFallback className="bg-primary/10 text-primary">
+            {playerName.slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="font-medium truncate max-w-[150px]" data-testid={`text-selection-name-${player.id}`}>
+                {playerName}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{playerName}</p>
+            </TooltipContent>
+          </Tooltip>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={getLevelBadgeVariant(level)} className="font-mono text-xs">
+              <Star className="h-3 w-3 mr-1" />
+              Nv {level}
+            </Badge>
+            <Badge variant="outline" className={`font-mono text-xs ${getKdColor(kd)}`}>
+              <TrendingUp className="h-3 w-3 mr-1" />
+              K/D {kd.toFixed(2)}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {isAdmin && isSelected && (
+        <div className="mt-3 pt-3 border-t">
+          <LevelSlider
+            playerId={player.id}
+            level={level}
+            onLevelChange={onLevelChange}
+          />
+        </div>
+      )}
+    </div>
+  );
+});
+
+const PlayerCard = memo(function PlayerCard({
+  player,
+  showActions = false,
+  team,
+  isAdmin,
+  isCaptain,
+  onLevelChange,
+  onMoveToTeam,
+  onRemoveFromTeam,
+  onSetCaptain,
+}: {
+  player: PlayerWithLevel;
+  showActions?: boolean;
+  team?: "team1" | "team2";
+  isAdmin: boolean;
+  isCaptain: boolean;
+  onLevelChange: (playerId: string, level: number) => void;
+  onMoveToTeam: (player: PlayerWithLevel, targetTeam: "team1" | "team2") => void;
+  onRemoveFromTeam: (player: PlayerWithLevel) => void;
+  onSetCaptain: (playerId: string, team: "team1" | "team2") => void;
+}) {
+  const kd = getCachedKd(player);
+  const playerName = getPlayerName(player);
+
+  return (
+    <div className={`p-3 bg-background/50 rounded-lg border space-y-3 ${isCaptain ? "border-yellow-500 bg-yellow-500/5" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="relative">
+            <Avatar className="h-10 w-10 shrink-0">
+              <AvatarImage src={player.profileImageUrl || undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {playerName.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            {isCaptain && (
+              <Crown className="absolute -top-2 -right-2 h-5 w-5 text-yellow-500 fill-yellow-500" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="font-medium truncate max-w-[120px] sm:max-w-[180px]" data-testid={`text-player-name-${player.id}`}>
+                  {playerName}
+                  {isCaptain && <span className="text-yellow-500 ml-1">(C)</span>}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{playerName}</p>
+              </TooltipContent>
+            </Tooltip>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={getLevelBadgeVariant(player.mixLevel)} className="font-mono text-xs" data-testid={`badge-level-${player.id}`}>
+                <Star className="h-3 w-3 mr-1" />
+                Nv {player.mixLevel}
+              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className={`font-mono text-xs ${getKdColor(kd)}`} data-testid={`badge-kd-${player.id}`}>
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    K/D {kd.toFixed(2)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>K/D Ratio</p>
+                  <p className="text-xs text-muted-foreground">{player.totalKills} kills / {player.totalDeaths} deaths</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </div>
+        {showActions && (
+          <div className="flex gap-1 shrink-0 flex-wrap">
+            {team && !isCaptain && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onSetCaptain(player.id, team)}
+                    data-testid={`button-captain-${player.id}`}
+                  >
+                    <Crown className="h-4 w-4 text-yellow-500" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Definir como Capitão</TooltipContent>
+              </Tooltip>
+            )}
+            {team !== "team1" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onMoveToTeam(player, "team1")}
+                className="text-xs px-2"
+                data-testid={`button-move-team1-${player.id}`}
+              >
+                CT
+              </Button>
+            )}
+            {team !== "team2" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onMoveToTeam(player, "team2")}
+                className="text-xs px-2"
+                data-testid={`button-move-team2-${player.id}`}
+              >
+                TR
+              </Button>
+            )}
+            {team && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onRemoveFromTeam(player)}
+                className="text-xs px-2"
+                data-testid={`button-remove-${player.id}`}
+              >
+                X
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {isAdmin && (
+        <LevelSlider
+          playerId={player.id}
+          level={player.mixLevel}
+          onLevelChange={onLevelChange}
+        />
+      )}
+    </div>
+  );
+});
 
 
 export default function MixEscolherTime() {
@@ -71,7 +386,7 @@ export default function MixEscolherTime() {
     if (users.length > 0 && !initialized) {
       const initialLevels: Record<string, number> = {};
       users.forEach(user => {
-        initialLevels[user.id] = 5;
+        initialLevels[user.id] = calculateAutoLevel(user);
       });
       setPlayerLevels(initialLevels);
       setInitialized(true);
@@ -90,33 +405,25 @@ export default function MixEscolherTime() {
     }
   }, [users, initialized, preselectedApplied]);
 
-  const getPlayerName = (player: User): string => {
-    if (player.nickname) return player.nickname;
-    if (player.firstName) return player.firstName;
-    if (player.email) return player.email;
-    return "Jogador";
-  };
-
   const getPlayerWithLevel = (player: User): PlayerWithLevel => ({
     ...player,
-    mixLevel: playerLevels[player.id] || 5,
+    mixLevel: playerLevels[player.id] ?? calculateAutoLevel(player),
   });
 
-  const setPlayerLevel = (playerId: string, level: number) => {
+  const setPlayerLevel = useCallback((playerId: string, level: number) => {
     setPlayerLevels(prev => ({ ...prev, [playerId]: level }));
-    
-    setAvailable(prev => prev.map(p => 
+    setAvailable(prev => prev.map(p =>
       p.id === playerId ? { ...p, mixLevel: level } : p
     ));
-    setTeam1(prev => prev.map(p => 
+    setTeam1(prev => prev.map(p =>
       p.id === playerId ? { ...p, mixLevel: level } : p
     ));
-    setTeam2(prev => prev.map(p => 
+    setTeam2(prev => prev.map(p =>
       p.id === playerId ? { ...p, mixLevel: level } : p
     ));
-  };
+  }, []);
 
-  const togglePlayerSelection = (playerId: string) => {
+  const togglePlayerSelection = useCallback((playerId: string) => {
     setSelectedPlayerIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(playerId)) {
@@ -126,7 +433,7 @@ export default function MixEscolherTime() {
       }
       return newSet;
     });
-  };
+  }, []);
 
   const selectAll = () => {
     setSelectedPlayerIds(new Set(users.map(u => u.id)));
@@ -173,7 +480,7 @@ export default function MixEscolherTime() {
       .filter(u => selectedPlayerIds.has(u.id))
       .map(u => getPlayerWithLevel(u));
     const sortedByLevel = [...selectedPlayers].sort((a, b) => b.mixLevel - a.mixLevel);
-    
+
     const newTeam1: PlayerWithLevel[] = [];
     const newTeam2: PlayerWithLevel[] = [];
     let team1Level = 0;
@@ -192,7 +499,6 @@ export default function MixEscolherTime() {
     setTeam1(newTeam1);
     setTeam2(newTeam2);
     setAvailable([]);
-    
     if (newTeam1.length > 0) setCaptain1Id(newTeam1[0].id);
     if (newTeam2.length > 0) setCaptain2Id(newTeam2[0].id);
   };
@@ -202,7 +508,7 @@ export default function MixEscolherTime() {
       .filter(u => selectedPlayerIds.has(u.id))
       .map(u => getPlayerWithLevel(u));
     const sortedByKd = [...selectedPlayers].sort((a, b) => getCachedKd(b) - getCachedKd(a));
-    
+
     const newTeam1: PlayerWithLevel[] = [];
     const newTeam2: PlayerWithLevel[] = [];
     let team1Kd = 0;
@@ -222,38 +528,36 @@ export default function MixEscolherTime() {
     setTeam1(newTeam1);
     setTeam2(newTeam2);
     setAvailable([]);
-    
     if (newTeam1.length > 0) setCaptain1Id(newTeam1[0].id);
     if (newTeam2.length > 0) setCaptain2Id(newTeam2[0].id);
   };
 
-  const moveToTeam = (player: PlayerWithLevel, targetTeam: "team1" | "team2") => {
-    setAvailable(available.filter(p => p.id !== player.id));
-    setTeam1(team1.filter(p => p.id !== player.id));
-    setTeam2(team2.filter(p => p.id !== player.id));
-    
+  const moveToTeam = useCallback((player: PlayerWithLevel, targetTeam: "team1" | "team2") => {
+    setAvailable(prev => prev.filter(p => p.id !== player.id));
+    setTeam1(prev => prev.filter(p => p.id !== player.id));
+    setTeam2(prev => prev.filter(p => p.id !== player.id));
     if (targetTeam === "team1") {
       setTeam1(prev => [...prev.filter(p => p.id !== player.id), player]);
     } else {
       setTeam2(prev => [...prev.filter(p => p.id !== player.id), player]);
     }
-  };
+  }, []);
 
-  const removeFromTeam = (player: PlayerWithLevel) => {
-    if (captain1Id === player.id) setCaptain1Id(null);
-    if (captain2Id === player.id) setCaptain2Id(null);
-    setTeam1(team1.filter(p => p.id !== player.id));
-    setTeam2(team2.filter(p => p.id !== player.id));
-    setAvailable([...available, player]);
-  };
+  const removeFromTeam = useCallback((player: PlayerWithLevel) => {
+    setCaptain1Id(prev => prev === player.id ? null : prev);
+    setCaptain2Id(prev => prev === player.id ? null : prev);
+    setTeam1(prev => prev.filter(p => p.id !== player.id));
+    setTeam2(prev => prev.filter(p => p.id !== player.id));
+    setAvailable(prev => [...prev, player]);
+  }, []);
 
-  const setCaptain = (playerId: string, team: "team1" | "team2") => {
+  const setCaptain = useCallback((playerId: string, team: "team1" | "team2") => {
     if (team === "team1") {
       setCaptain1Id(playerId);
     } else {
       setCaptain2Id(playerId);
     }
-  };
+  }, []);
 
   const proceedToVeto = () => {
     setBannedMaps([]);
@@ -265,9 +569,7 @@ export default function MixEscolherTime() {
   const banMap = (mapName: string) => {
     const newBannedMaps = [...bannedMaps, mapName];
     setBannedMaps(newBannedMaps);
-    
     const remainingMaps = MAPS.filter(m => !newBannedMaps.includes(m.name));
-    
     if (remainingMaps.length === 1) {
       setSelectedMap(remainingMaps[0].name);
     } else {
@@ -281,10 +583,10 @@ export default function MixEscolherTime() {
     setSelectedMap(null);
   };
 
-  const getTeamLevel = (team: PlayerWithLevel[]) => 
+  const getTeamLevel = (team: PlayerWithLevel[]) =>
     team.reduce((sum, p) => sum + p.mixLevel, 0);
 
-  const getTeamAvgLevel = (team: PlayerWithLevel[]) => 
+  const getTeamAvgLevel = (team: PlayerWithLevel[]) =>
     team.length > 0 ? (getTeamLevel(team) / team.length).toFixed(1) : "0";
 
   const getTeamKd = (team: PlayerWithLevel[]) =>
@@ -292,27 +594,6 @@ export default function MixEscolherTime() {
 
   const getTeamAvgKd = (team: PlayerWithLevel[]) =>
     team.length > 0 ? (getTeamKd(team) / team.length).toFixed(2) : "0.00";
-
-  const getLevelColor = (level: number) => {
-    if (level <= 3) return "text-red-500";
-    if (level <= 5) return "text-yellow-500";
-    if (level <= 7) return "text-blue-500";
-    return "text-green-500";
-  };
-
-  const getLevelBadgeVariant = (level: number): "destructive" | "secondary" | "default" | "outline" => {
-    if (level <= 3) return "destructive";
-    if (level <= 5) return "secondary";
-    if (level <= 7) return "default";
-    return "default";
-  };
-
-  const getKdColor = (kd: number) => {
-    if (kd < 0.8) return "text-red-500";
-    if (kd < 1.0) return "text-yellow-500";
-    if (kd < 1.3) return "text-blue-500";
-    return "text-green-500";
-  };
 
   const getSortedUsers = () => {
     const usersCopy = [...users];
@@ -327,219 +608,6 @@ export default function MixEscolherTime() {
     }
   };
 
-  const SelectionPlayerCard = ({ player }: { player: User }) => {
-    const isSelected = selectedPlayerIds.has(player.id);
-    const kd = getCachedKd(player);
-    const playerName = getPlayerName(player);
-    const level = playerLevels[player.id] || 5;
-    const isAdmin = currentUser?.isAdmin;
-    
-    return (
-      <div 
-        className={`p-3 rounded-lg border cursor-pointer transition-all ${
-          isSelected 
-            ? "bg-primary/10 border-primary" 
-            : "bg-background/50 hover-elevate"
-        }`}
-        onClick={() => togglePlayerSelection(player.id)}
-        data-testid={`selection-card-${player.id}`}
-      >
-        <div className="flex items-center gap-3">
-          <Checkbox 
-            checked={isSelected}
-            onCheckedChange={() => togglePlayerSelection(player.id)}
-            onClick={(e) => e.stopPropagation()}
-            data-testid={`checkbox-${player.id}`}
-          />
-          <Avatar className="h-10 w-10 shrink-0">
-            <AvatarImage src={player.profileImageUrl || undefined} />
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {playerName.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="font-medium truncate max-w-[150px]" data-testid={`text-selection-name-${player.id}`}>
-                  {playerName}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{playerName}</p>
-              </TooltipContent>
-            </Tooltip>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={getLevelBadgeVariant(level)} className="font-mono text-xs">
-                <Star className="h-3 w-3 mr-1" />
-                Nv {level}
-              </Badge>
-              <Badge variant="outline" className={`font-mono text-xs ${getKdColor(kd)}`}>
-                <TrendingUp className="h-3 w-3 mr-1" />
-                K/D {kd.toFixed(2)}
-              </Badge>
-            </div>
-          </div>
-        </div>
-        
-        {isAdmin && isSelected && (
-          <div className="flex items-center gap-3 mt-3 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
-            <span className="text-xs text-muted-foreground w-12 shrink-0">Nível:</span>
-            <Slider
-              value={[level]}
-              onValueChange={(value) => setPlayerLevel(player.id, value[0])}
-              min={1}
-              max={10}
-              step={1}
-              className="flex-1"
-              data-testid={`slider-selection-level-${player.id}`}
-            />
-            <span className={`font-mono font-bold w-6 text-center shrink-0 ${getLevelColor(level)}`}>
-              {level}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const PlayerCard = ({ 
-    player, 
-    showActions = false, 
-    team 
-  }: { 
-    player: PlayerWithLevel; 
-    showActions?: boolean; 
-    team?: "team1" | "team2";
-  }) => {
-    const isAdmin = currentUser?.isAdmin;
-    const kd = getCachedKd(player);
-    const playerName = getPlayerName(player);
-    const isCaptain = (team === "team1" && captain1Id === player.id) || 
-                      (team === "team2" && captain2Id === player.id);
-    
-    return (
-      <div className={`p-3 bg-background/50 rounded-lg border space-y-3 ${isCaptain ? "border-yellow-500 bg-yellow-500/5" : ""}`}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="relative">
-              <Avatar className="h-10 w-10 shrink-0">
-                <AvatarImage src={player.profileImageUrl || undefined} />
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {playerName.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              {isCaptain && (
-                <Crown className="absolute -top-2 -right-2 h-5 w-5 text-yellow-500 fill-yellow-500" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="font-medium truncate max-w-[120px] sm:max-w-[180px]" data-testid={`text-player-name-${player.id}`}>
-                    {playerName}
-                    {isCaptain && <span className="text-yellow-500 ml-1">(C)</span>}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{playerName}</p>
-                </TooltipContent>
-              </Tooltip>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant={getLevelBadgeVariant(player.mixLevel)} className="font-mono text-xs" data-testid={`badge-level-${player.id}`}>
-                  <Star className="h-3 w-3 mr-1" />
-                  Nv {player.mixLevel}
-                </Badge>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge variant="outline" className={`font-mono text-xs ${getKdColor(kd)}`} data-testid={`badge-kd-${player.id}`}>
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      K/D {kd.toFixed(2)}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>K/D Ratio</p>
-                    <p className="text-xs text-muted-foreground">{player.totalKills} kills / {player.totalDeaths} deaths</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
-          {showActions && (
-            <div className="flex gap-1 shrink-0 flex-wrap">
-              {team && !isCaptain && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={() => setCaptain(player.id, team)}
-                      className="h-8 w-8"
-                      data-testid={`button-captain-${player.id}`}
-                    >
-                      <Crown className="h-4 w-4 text-yellow-500" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Definir como Capitão</TooltipContent>
-                </Tooltip>
-              )}
-              {team !== "team1" && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => moveToTeam(player, "team1")}
-                  className="text-xs px-2"
-                  data-testid={`button-move-team1-${player.id}`}
-                >
-                  CT
-                </Button>
-              )}
-              {team !== "team2" && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => moveToTeam(player, "team2")}
-                  className="text-xs px-2"
-                  data-testid={`button-move-team2-${player.id}`}
-                >
-                  TR
-                </Button>
-              )}
-              {team && (
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={() => removeFromTeam(player)}
-                  className="text-xs px-2"
-                  data-testid={`button-remove-${player.id}`}
-                >
-                  X
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-        
-        {isAdmin && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground w-12 shrink-0">Nível:</span>
-            <Slider
-              value={[player.mixLevel]}
-              onValueChange={(value) => setPlayerLevel(player.id, value[0])}
-              min={1}
-              max={10}
-              step={1}
-              className="flex-1"
-              data-testid={`slider-level-${player.id}`}
-            />
-            <span className={`font-mono font-bold w-6 text-center shrink-0 ${getLevelColor(player.mixLevel)}`}>
-              {player.mixLevel}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -552,7 +620,7 @@ export default function MixEscolherTime() {
     const captain1 = team1.find(p => p.id === captain1Id);
     const captain2 = team2.find(p => p.id === captain2Id);
     const remainingMaps = MAPS.filter(m => !bannedMaps.includes(m.name));
-    
+
     return (
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -562,8 +630,8 @@ export default function MixEscolherTime() {
               Veto de Mapas
             </h1>
             <p className="text-muted-foreground mt-1">
-              {selectedMap 
-                ? "Mapa selecionado!" 
+              {selectedMap
+                ? "Mapa selecionado!"
                 : `Vez do ${currentVetoTeam === 1 ? "Time 1 (CT)" : "Time 2 (TR)"} banir um mapa`
               }
             </p>
@@ -735,8 +803,8 @@ export default function MixEscolherTime() {
             <Button variant="outline" onClick={selectAll} data-testid="button-select-all">
               Selecionar Todos
             </Button>
-            <Button 
-              onClick={proceedToBalancing} 
+            <Button
+              onClick={proceedToBalancing}
               disabled={selectedPlayerIds.size < 2}
               data-testid="button-proceed"
             >
@@ -770,13 +838,21 @@ export default function MixEscolherTime() {
               </div>
             </CardTitle>
             <CardDescription>
-              Clique para selecionar/desmarcar jogadores. {currentUser?.isAdmin && "Como admin, você pode ajustar o nível dos jogadores selecionados."}
+              Clique para selecionar/desmarcar jogadores. {currentUser?.isAdmin && "Como admin, você pode ajustar o nível dos jogadores selecionados. O nível é calculado automaticamente com base nas estatísticas."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {getSortedUsers().map((player) => (
-                <SelectionPlayerCard key={player.id} player={player} />
+                <SelectionPlayerCard
+                  key={player.id}
+                  player={player}
+                  isSelected={selectedPlayerIds.has(player.id)}
+                  level={playerLevels[player.id] ?? 5}
+                  isAdmin={!!currentUser?.isAdmin}
+                  onToggle={togglePlayerSelection}
+                  onLevelChange={setPlayerLevel}
+                />
               ))}
             </div>
             {users.length === 0 && (
@@ -804,8 +880,8 @@ export default function MixEscolherTime() {
                     <Badge variant="outline">Menos que 10 jogadores</Badge>
                   )}
                 </div>
-                <Button 
-                  onClick={proceedToBalancing} 
+                <Button
+                  onClick={proceedToBalancing}
                   disabled={selectedPlayerIds.size < 2}
                   data-testid="button-proceed-footer"
                 >
@@ -829,7 +905,7 @@ export default function MixEscolherTime() {
             Balancear Times
           </h1>
           <p className="text-muted-foreground mt-1">
-            {currentUser?.isAdmin 
+            {currentUser?.isAdmin
               ? "Defina o nível de cada jogador (1-10) e balance os times"
               : "Organize os times para a partida"
             }
@@ -861,7 +937,8 @@ export default function MixEscolherTime() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Star className="h-4 w-4 text-primary shrink-0" />
               <span>
-                Como admin, você pode ajustar o nível de habilidade (1-10) de cada jogador. 
+                Como admin, você pode ajustar o nível de habilidade (1-10) de cada jogador.
+                O nível foi pré-calculado com base nas estatísticas (K/D, HS%, ADR, Win Rate, Multi-kills).
                 Use "Por Nível" para balancear pelo nível manual ou "Por K/D" para usar o K/D ratio.
               </span>
             </div>
@@ -880,7 +957,17 @@ export default function MixEscolherTime() {
           </CardHeader>
           <CardContent className="space-y-2">
             {available.map((player) => (
-              <PlayerCard key={player.id} player={player} showActions />
+              <PlayerCard
+                key={player.id}
+                player={player}
+                showActions
+                isAdmin={!!currentUser?.isAdmin}
+                isCaptain={false}
+                onLevelChange={setPlayerLevel}
+                onMoveToTeam={moveToTeam}
+                onRemoveFromTeam={removeFromTeam}
+                onSetCaptain={setCaptain}
+              />
             ))}
             {available.length === 0 && (
               <p className="text-center text-muted-foreground py-4">
@@ -906,7 +993,18 @@ export default function MixEscolherTime() {
           </CardHeader>
           <CardContent className="space-y-2 pt-4">
             {team1.map((player) => (
-              <PlayerCard key={player.id} player={player} showActions team="team1" />
+              <PlayerCard
+                key={player.id}
+                player={player}
+                showActions
+                team="team1"
+                isAdmin={!!currentUser?.isAdmin}
+                isCaptain={captain1Id === player.id}
+                onLevelChange={setPlayerLevel}
+                onMoveToTeam={moveToTeam}
+                onRemoveFromTeam={removeFromTeam}
+                onSetCaptain={setCaptain}
+              />
             ))}
             {team1.length === 0 && (
               <p className="text-center text-muted-foreground py-4">
@@ -932,7 +1030,18 @@ export default function MixEscolherTime() {
           </CardHeader>
           <CardContent className="space-y-2 pt-4">
             {team2.map((player) => (
-              <PlayerCard key={player.id} player={player} showActions team="team2" />
+              <PlayerCard
+                key={player.id}
+                player={player}
+                showActions
+                team="team2"
+                isAdmin={!!currentUser?.isAdmin}
+                isCaptain={captain2Id === player.id}
+                onLevelChange={setPlayerLevel}
+                onMoveToTeam={moveToTeam}
+                onRemoveFromTeam={removeFromTeam}
+                onSetCaptain={setCaptain}
+              />
             ))}
             {team2.length === 0 && (
               <p className="text-center text-muted-foreground py-4">
