@@ -700,11 +700,14 @@ export default function Mural() {
                         <Trophy className={`h-4 w-4 shrink-0 ${display.iconClass}`} />
                         <span className="text-sm font-bold truncate">{display.label}</span>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-sm font-medium truncate">
                         {trophyUser?.nickname || trophyUser?.firstName || "Jogador"}
                       </p>
+                      {trophy.description && (
+                        <p className="text-xs text-muted-foreground leading-snug">{trophy.description}</p>
+                      )}
                       {trophy.value && (
-                        <p className="text-xs font-mono font-bold text-muted-foreground">{trophy.value}</p>
+                        <p className="text-xs font-mono font-bold mt-1">{trophy.value}</p>
                       )}
                     </div>
                   </div>
