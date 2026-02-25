@@ -17,7 +17,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import type { User as UserType, MonthlyRanking } from "@shared/schema";
+import type { User as UserType, MonthlyRanking, Trophy as TrophyType } from "@shared/schema";
 
 export default function Perfil() {
   const { user } = useAuth();
@@ -71,6 +71,11 @@ export default function Perfil() {
 
   const { data: monthlyRankingsHistory = [] } = useQuery<MonthlyRanking[]>({
     queryKey: ["/api/monthly-rankings"],
+  });
+
+  const { data: userTrophies = [] } = useQuery<TrophyType[]>({
+    queryKey: ['/api/trophies/user', user?.id],
+    enabled: !!user?.id,
   });
 
   const MONTH_NAMES_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -232,6 +237,67 @@ export default function Perfil() {
   const flashSuccessRate = user.totalFlashCount > 0
     ? ((user.totalFlashSuccesses / user.totalFlashCount) * 100).toFixed(0)
     : "0";
+
+  const getTrophyConfig = (type: string) => {
+    const configs: Record<string, {
+      icon: typeof Trophy;
+      iconClass: string;
+      iconBgClass: string;
+      borderClass: string;
+      bgClass: string;
+    }> = {
+      best_player: {
+        icon: Trophy,
+        iconClass: "text-yellow-500",
+        iconBgClass: "bg-yellow-500/10",
+        borderClass: "border-yellow-500/30",
+        bgClass: "bg-yellow-500/5",
+      },
+      best_kd: {
+        icon: Crosshair,
+        iconClass: "text-red-500",
+        iconBgClass: "bg-red-500/10",
+        borderClass: "border-red-500/30",
+        bgClass: "bg-red-500/5",
+      },
+      best_assists: {
+        icon: Handshake,
+        iconClass: "text-blue-500",
+        iconBgClass: "bg-blue-500/10",
+        borderClass: "border-blue-500/30",
+        bgClass: "bg-blue-500/5",
+      },
+      best_hs: {
+        icon: Target,
+        iconClass: "text-orange-500",
+        iconBgClass: "bg-orange-500/10",
+        borderClass: "border-orange-500/30",
+        bgClass: "bg-orange-500/5",
+      },
+      most_matches: {
+        icon: Zap,
+        iconClass: "text-purple-500",
+        iconBgClass: "bg-purple-500/10",
+        borderClass: "border-purple-500/30",
+        bgClass: "bg-purple-500/5",
+      },
+      worst_player: {
+        icon: AlertCircle,
+        iconClass: "text-gray-500",
+        iconBgClass: "bg-gray-500/10",
+        borderClass: "border-gray-500/30",
+        bgClass: "bg-gray-500/5",
+      },
+      worst_kd: {
+        icon: Shield,
+        iconClass: "text-gray-400",
+        iconBgClass: "bg-gray-400/10",
+        borderClass: "border-gray-400/30",
+        bgClass: "bg-gray-400/5",
+      },
+    };
+    return configs[type] || configs.best_player;
+  };
 
   return (
     <div className="space-y-6">
@@ -547,6 +613,49 @@ export default function Perfil() {
                 );
               })()}
               <span className="text-xs">Dados dos últimos 3 meses salvos pelo admin</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {userTrophies.length > 0 && (
+        <Card data-testid="card-trophies">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Medal className="h-5 w-5 text-yellow-500" />
+              Medalhas e Troféus
+            </CardTitle>
+            <CardDescription>
+              Conquistas baseadas no ranking mensal
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {userTrophies.map((trophy) => {
+                const trophyConfig = getTrophyConfig(trophy.type);
+                return (
+                  <div
+                    key={trophy.id}
+                    data-testid={`trophy-${trophy.type}-${trophy.month}-${trophy.year}`}
+                    className={`relative p-4 rounded-md border ${trophyConfig.borderClass} ${trophyConfig.bgClass}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`flex-shrink-0 p-2 rounded-md ${trophyConfig.iconBgClass}`}>
+                        <trophyConfig.icon className={`h-6 w-6 ${trophyConfig.iconClass}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm leading-tight">{trophy.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-snug">{trophy.description}</p>
+                        {trophy.value && (
+                          <Badge variant="secondary" className="mt-2 font-mono text-xs">
+                            {trophy.value}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

@@ -1153,6 +1153,64 @@ export async function registerRoutes(
         rankings,
       });
 
+      try {
+        const firstDay = new Date(year, month - 1, 1);
+        const lastDay = new Date(year, month, 0, 23, 59, 59);
+        const allMatches = await storage.getAllMatches();
+        const monthlyMatches = allMatches.filter(m => {
+          const matchDate = new Date(m.date);
+          return matchDate >= firstDay && matchDate <= lastDay;
+        });
+
+        if (monthlyMatches.length > 0) {
+          const allUsers = await storage.getAllUsers();
+          const userMap = new Map(allUsers.map(u => [u.id, u]));
+          const playerStatsForTrophies: Record<string, any> = {};
+          
+          for (const match of monthlyMatches) {
+            const stats = await storage.getMatchStats(match.id);
+            for (const stat of stats) {
+              if (!playerStatsForTrophies[stat.userId]) {
+                playerStatsForTrophies[stat.userId] = {
+                  userId: stat.userId, kills: 0, deaths: 0, assists: 0, headshots: 0,
+                  damage: 0, mvps: 0, matchesPlayed: 0, matchesWon: 0,
+                  total5ks: 0, total4ks: 0, total3ks: 0, seenMatches: new Set(),
+                };
+              }
+              const ps = playerStatsForTrophies[stat.userId];
+              ps.kills += stat.kills; ps.deaths += stat.deaths;
+              ps.assists += stat.assists; ps.headshots += stat.headshots;
+              ps.damage += stat.damage; ps.mvps += stat.mvps;
+              ps.total5ks += stat.enemy5ks; ps.total4ks += stat.enemy4ks;
+              ps.total3ks += stat.enemy3ks;
+              if (!ps.seenMatches.has(match.id)) {
+                ps.seenMatches.add(match.id);
+                ps.matchesPlayed += 1;
+                if (match.winnerTeam && stat.team === match.winnerTeam) ps.matchesWon += 1;
+              }
+            }
+          }
+
+          const qualified = Object.values(playerStatsForTrophies).filter((s: any) => s.matchesPlayed >= 3);
+          if (qualified.length > 0) {
+            await storage.deleteTrophiesByMonthYear(month, year);
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            for (const def of TROPHY_DEFINITIONS) {
+              const winner = def.getWinner(qualified);
+              if (winner) {
+                await storage.createTrophy({
+                  userId: winner.userId, type: def.type, month, year,
+                  title: `${def.title} - ${monthNames[month - 1]}/${year}`,
+                  description: def.description, value: winner.value,
+                });
+              }
+            }
+          }
+        }
+      } catch (trophyError) {
+        console.error("Error auto-generating trophies:", trophyError);
+      }
+
       res.json(newRanking);
     } catch (error) {
       console.error("Error creating monthly ranking:", error);
@@ -1179,6 +1237,257 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting monthly ranking:", error);
       res.status(500).json({ message: "Failed to delete monthly ranking" });
+    }
+  });
+
+  // ============ TROPHY ROUTES ============
+
+  app.get('/api/trophies/user/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userTrophies = await storage.getUserTrophies(req.params.userId);
+      res.json(userTrophies);
+    } catch (error) {
+      console.error("Error fetching user trophies:", error);
+      res.status(500).json({ message: "Failed to fetch trophies" });
+    }
+  });
+
+  app.get('/api/trophies', isAuthenticated, async (req: any, res) => {
+    try {
+      const allTrophies = await storage.getAllTrophies();
+      res.json(allTrophies);
+    } catch (error) {
+      console.error("Error fetching trophies:", error);
+      res.status(500).json({ message: "Failed to fetch trophies" });
+    }
+  });
+
+  const TROPHY_DEFINITIONS = [
+    {
+      type: "best_player",
+      title: "Craque do Mês",
+      description: "O cara é brabo demais! Melhor jogador do mês, carregou o time nas costas.",
+      getWinner: (stats: any[]) => {
+        if (stats.length === 0) return null;
+        const sorted = [...stats].sort((a, b) => {
+          const srA = calculateSkillRating(a);
+          const srB = calculateSkillRating(b);
+          return srB - srA;
+        });
+        return { ...sorted[0], value: `SR: ${calculateSkillRating(sorted[0]).toFixed(0)}` };
+      }
+    },
+    {
+      type: "best_kd",
+      title: "Matador Nato",
+      description: "Esse aí não morre de graça! Maior K/D do mês, os inimigos que se escondam.",
+      getWinner: (stats: any[]) => {
+        if (stats.length === 0) return null;
+        const sorted = [...stats].sort((a, b) => {
+          const kdA = a.deaths > 0 ? a.kills / a.deaths : a.kills;
+          const kdB = b.deaths > 0 ? b.kills / b.deaths : b.kills;
+          return kdB - kdA;
+        });
+        const kd = sorted[0].deaths > 0 ? (sorted[0].kills / sorted[0].deaths).toFixed(2) : sorted[0].kills.toFixed(2);
+        return { ...sorted[0], value: `K/D: ${kd}` };
+      }
+    },
+    {
+      type: "best_assists",
+      title: "Amigão do Server",
+      description: "Não mata, mas ajuda! Maior média de assistências do mês. O verdadeiro team player.",
+      getWinner: (stats: any[]) => {
+        if (stats.length === 0) return null;
+        const sorted = [...stats].sort((a, b) => {
+          const avgA = a.matchesPlayed > 0 ? a.assists / a.matchesPlayed : 0;
+          const avgB = b.matchesPlayed > 0 ? b.assists / b.matchesPlayed : 0;
+          return avgB - avgA;
+        });
+        const avg = sorted[0].matchesPlayed > 0 ? (sorted[0].assists / sorted[0].matchesPlayed).toFixed(1) : "0";
+        return { ...sorted[0], value: `Média: ${avg} assists/partida` };
+      }
+    },
+    {
+      type: "best_hs",
+      title: "Mira de Aimbot",
+      description: "Só na cabeça! Melhor percentual de headshot. Se não fosse amigo, já tinha sido reportado.",
+      getWinner: (stats: any[]) => {
+        if (stats.length === 0) return null;
+        const sorted = [...stats].sort((a, b) => {
+          const hsA = a.kills > 0 ? (a.headshots / a.kills) * 100 : 0;
+          const hsB = b.kills > 0 ? (b.headshots / b.kills) * 100 : 0;
+          return hsB - hsA;
+        });
+        const hs = sorted[0].kills > 0 ? ((sorted[0].headshots / sorted[0].kills) * 100).toFixed(1) : "0";
+        return { ...sorted[0], value: `HS: ${hs}%` };
+      }
+    },
+    {
+      type: "most_matches",
+      title: "Viciado Oficial",
+      description: "Esse aí não larga o PC! Jogou mais partidas que todo mundo. Precisa de uma intervenção.",
+      getWinner: (stats: any[]) => {
+        if (stats.length === 0) return null;
+        const sorted = [...stats].sort((a, b) => b.matchesPlayed - a.matchesPlayed);
+        return { ...sorted[0], value: `${sorted[0].matchesPlayed} partidas` };
+      }
+    },
+    {
+      type: "worst_player",
+      title: "Troféu Abacaxi",
+      description: "Alguém tem que ser o último... Pior skill rating do mês. Mas pelo menos jogou, né?",
+      getWinner: (stats: any[]) => {
+        if (stats.length === 0) return null;
+        const sorted = [...stats].sort((a, b) => {
+          const srA = calculateSkillRating(a);
+          const srB = calculateSkillRating(b);
+          return srA - srB;
+        });
+        return { ...sorted[0], value: `SR: ${calculateSkillRating(sorted[0]).toFixed(0)}` };
+      }
+    },
+    {
+      type: "worst_kd",
+      title: "Ímã de Bala",
+      description: "Esse aí morre mais que personagem de novela! Menor K/D do mês. Os inimigos agradecem.",
+      getWinner: (stats: any[]) => {
+        if (stats.length === 0) return null;
+        const sorted = [...stats].sort((a, b) => {
+          const kdA = a.deaths > 0 ? a.kills / a.deaths : a.kills;
+          const kdB = b.deaths > 0 ? b.kills / b.deaths : b.kills;
+          return kdA - kdB;
+        });
+        const kd = sorted[0].deaths > 0 ? (sorted[0].kills / sorted[0].deaths).toFixed(2) : "0";
+        return { ...sorted[0], value: `K/D: ${kd}` };
+      }
+    },
+  ];
+
+  function calculateSkillRating(stats: any): number {
+    const kd = stats.deaths > 0 ? stats.kills / stats.deaths : stats.kills;
+    const hsPercent = stats.kills > 0 ? (stats.headshots / stats.kills) * 100 : 0;
+    const adr = stats.matchesPlayed > 0 ? stats.damage / stats.matchesPlayed : 0;
+    const winRate = stats.matchesPlayed > 0 ? (stats.matchesWon / stats.matchesPlayed) * 100 : 0;
+    const mvpsPerMatch = stats.matchesPlayed > 0 ? stats.mvps / stats.matchesPlayed : 0;
+    
+    let sr = 1000;
+    sr += (kd - 1) * 200;
+    sr += (hsPercent - 40) * 3;
+    sr += (adr - 70) * 2;
+    sr += (winRate - 50) * 4;
+    sr += mvpsPerMatch * 50;
+    sr += (stats.total5ks || 0) * 30;
+    sr += (stats.total4ks || 0) * 15;
+    sr += (stats.total3ks || 0) * 5;
+    
+    return Math.max(100, Math.min(3000, sr));
+  }
+
+  app.post('/api/trophies/generate/:year/:month', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      
+      if (!currentUser?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - Admin access required" });
+      }
+
+      const month = parseInt(req.params.month);
+      const year = parseInt(req.params.year);
+
+      if (isNaN(month) || month < 1 || month > 12 || isNaN(year)) {
+        return res.status(400).json({ message: "Invalid month or year" });
+      }
+
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0, 23, 59, 59);
+      
+      const allMatches = await storage.getAllMatches();
+      const monthlyMatches = allMatches.filter(m => {
+        const matchDate = new Date(m.date);
+        return matchDate >= firstDay && matchDate <= lastDay;
+      });
+
+      if (monthlyMatches.length === 0) {
+        return res.status(400).json({ message: "Nenhuma partida encontrada neste mês" });
+      }
+
+      const allUsers = await storage.getAllUsers();
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+      const playerStats: Record<string, any> = {};
+      
+      for (const match of monthlyMatches) {
+        const stats = await storage.getMatchStats(match.id);
+        
+        for (const stat of stats) {
+          if (!playerStats[stat.userId]) {
+            playerStats[stat.userId] = {
+              userId: stat.userId,
+              kills: 0, deaths: 0, assists: 0, headshots: 0,
+              damage: 0, mvps: 0, matchesPlayed: 0, matchesWon: 0,
+              total5ks: 0, total4ks: 0, total3ks: 0,
+              seenMatches: new Set(),
+            };
+          }
+          
+          const ps = playerStats[stat.userId];
+          ps.kills += stat.kills;
+          ps.deaths += stat.deaths;
+          ps.assists += stat.assists;
+          ps.headshots += stat.headshots;
+          ps.damage += stat.damage;
+          ps.mvps += stat.mvps;
+          ps.total5ks += stat.enemy5ks;
+          ps.total4ks += stat.enemy4ks;
+          ps.total3ks += stat.enemy3ks;
+          
+          if (!ps.seenMatches.has(match.id)) {
+            ps.seenMatches.add(match.id);
+            ps.matchesPlayed += 1;
+            if (match.winnerTeam && stat.team === match.winnerTeam) {
+              ps.matchesWon += 1;
+            }
+          }
+        }
+      }
+
+      const qualifiedStats = Object.values(playerStats).filter((s: any) => s.matchesPlayed >= 3);
+
+      if (qualifiedStats.length === 0) {
+        return res.status(400).json({ message: "Nenhum jogador com 3+ partidas neste mês" });
+      }
+
+      await storage.deleteTrophiesByMonthYear(month, year);
+
+      const createdTrophies = [];
+      const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+      const monthName = monthNames[month - 1];
+
+      for (const def of TROPHY_DEFINITIONS) {
+        const winner = def.getWinner(qualifiedStats);
+        if (winner) {
+          const user = userMap.get(winner.userId);
+          const trophy = await storage.createTrophy({
+            userId: winner.userId,
+            type: def.type,
+            month,
+            year,
+            title: `${def.title} - ${monthName}/${year}`,
+            description: def.description,
+            value: winner.value,
+          });
+          createdTrophies.push(trophy);
+        }
+      }
+
+      res.json({ 
+        message: `${createdTrophies.length} troféus gerados para ${monthName}/${year}`,
+        trophies: createdTrophies 
+      });
+    } catch (error) {
+      console.error("Error generating trophies:", error);
+      res.status(500).json({ message: "Failed to generate trophies" });
     }
   });
 

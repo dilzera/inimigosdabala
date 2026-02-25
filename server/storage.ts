@@ -14,6 +14,7 @@ import {
   mixAvailability,
   mixPenalties,
   news,
+  trophies,
   type User,
   type UpsertUser,
   type Match,
@@ -37,6 +38,8 @@ import {
   type MixAvailability,
   type MixPenalty,
   type News,
+  type Trophy,
+  type InsertTrophy,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc } from "drizzle-orm";
@@ -123,6 +126,13 @@ export interface IStorage {
   getAllNews(): Promise<Array<News & { author: User }>>;
   createNews(authorId: string, title: string, content: string): Promise<News>;
   deleteNews(id: string): Promise<boolean>;
+
+  // Trophy operations
+  getUserTrophies(userId: string): Promise<Trophy[]>;
+  getAllTrophies(): Promise<Trophy[]>;
+  getTrophiesByMonthYear(month: number, year: number): Promise<Trophy[]>;
+  createTrophy(trophy: InsertTrophy): Promise<Trophy>;
+  deleteTrophiesByMonthYear(month: number, year: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1063,6 +1073,34 @@ export class DatabaseStorage implements IStorage {
 
   async deleteNews(id: string): Promise<boolean> {
     const result = await db.delete(news).where(eq(news.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getUserTrophies(userId: string): Promise<Trophy[]> {
+    return await db.select().from(trophies)
+      .where(eq(trophies.userId, userId))
+      .orderBy(desc(trophies.year), desc(trophies.month));
+  }
+
+  async getAllTrophies(): Promise<Trophy[]> {
+    return await db.select().from(trophies)
+      .orderBy(desc(trophies.year), desc(trophies.month));
+  }
+
+  async getTrophiesByMonthYear(month: number, year: number): Promise<Trophy[]> {
+    return await db.select().from(trophies)
+      .where(sql`${trophies.month} = ${month} AND ${trophies.year} = ${year}`);
+  }
+
+  async createTrophy(trophy: InsertTrophy): Promise<Trophy> {
+    const [created] = await db.insert(trophies).values(trophy).returning();
+    return created;
+  }
+
+  async deleteTrophiesByMonthYear(month: number, year: number): Promise<boolean> {
+    const result = await db.delete(trophies)
+      .where(sql`${trophies.month} = ${month} AND ${trophies.year} = ${year}`)
+      .returning();
     return result.length > 0;
   }
 }

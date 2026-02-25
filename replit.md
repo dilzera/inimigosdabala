@@ -127,6 +127,10 @@ The application uses the following main tables:
 6. **bets** - Player betting records with target player, amounts, odds, and status
 7. **betItems** - Individual bet conditions (kills over/under, K/D, headshots, etc.)
 8. **casinoTransactions** - Transaction history for balance changes (bets, wins, games)
+9. **trophies** - Monthly award medals tied to player profiles (type, month, year, title, description, value)
+   - Types: best_player, best_kd, best_assists, best_hs, most_matches, worst_player, worst_kd
+   - Auto-generated when admin saves monthly rankings, or manually via admin API
+   - Displayed on user profile pages as medals/badges
 
 **Authentication & Authorization**
 - Replit OpenID Connect integration using openid-client and Passport.js

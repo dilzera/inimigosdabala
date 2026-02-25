@@ -445,7 +445,33 @@ export const insertNewsSchema = createInsertSchema(news).omit({
   createdAt: true,
 });
 
+export const trophies = pgTable("trophies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: varchar("type").notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  title: varchar("title").notNull(),
+  description: varchar("description").notNull(),
+  value: varchar("value"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const trophyRelations = relations(trophies, ({ one }) => ({
+  user: one(users, {
+    fields: [trophies.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertTrophySchema = createInsertSchema(trophies).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
+export type Trophy = typeof trophies.$inferSelect;
+export type InsertTrophy = z.infer<typeof insertTrophySchema>;
 export type News = typeof news.$inferSelect;
 export type InsertNews = z.infer<typeof insertNewsSchema>;
 export type UpsertUser = typeof users.$inferInsert;
