@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
-import { Skull, AlertTriangle, Target, Crosshair, TrendingDown } from "lucide-react";
+import { Skull, AlertTriangle, Target, Crosshair, TrendingDown, Handshake } from "lucide-react";
 import { Link } from "wouter";
 import type { User } from "@shared/schema";
 
@@ -39,6 +39,12 @@ export default function PioresJogadores() {
     const wrA = a.totalMatches > 0 ? (a.matchesWon / a.totalMatches) * 100 : 0;
     const wrB = b.totalMatches > 0 ? (b.matchesWon / b.totalMatches) * 100 : 0;
     return wrA - wrB;
+  });
+
+  const sortedByAssists = [...usersWithMatches].sort((a, b) => {
+    const avgA = a.totalMatches > 0 ? a.totalAssists / a.totalMatches : 0;
+    const avgB = b.totalMatches > 0 ? b.totalAssists / b.totalMatches : 0;
+    return avgA - avgB;
   });
 
   const getRankIcon = (index: number) => {
@@ -210,6 +216,35 @@ export default function PioresJogadores() {
               );
             })}
             {sortedByWinRate.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum jogador com partidas registradas
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Handshake className="h-5 w-5 text-red-500" />
+              Pior Média de Assistências
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {sortedByAssists.slice(0, 10).map((player, index) => {
+              const avg = player.totalMatches > 0
+                ? (player.totalAssists / player.totalMatches).toFixed(1)
+                : "0.0";
+              return (
+                <PlayerRow
+                  key={player.id}
+                  player={player}
+                  index={index}
+                  stat={`${avg}/partida`}
+                />
+              );
+            })}
+            {sortedByAssists.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 Nenhum jogador com partidas registradas
               </div>

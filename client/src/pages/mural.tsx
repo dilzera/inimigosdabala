@@ -20,7 +20,7 @@ import {
   Newspaper, ChevronDown, ChevronRight, Plus, Trash2, Send
 } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
-import type { User as UserType, Match, MatchStats, News } from "@shared/schema";
+import type { User as UserType, Match, MatchStats, News, Trophy as TrophyType } from "@shared/schema";
 import skinsLabLogo from "@assets/skins_lab_logo1_1771007653832.png";
 import thomaziniLogo from "@assets/thomazini_logo_1771007598394.jpeg";
 import dukinhaLogo from "@assets/WhatsApp_Image_2026-02-13_at_15.40.31_1771008050723.jpeg";
@@ -85,11 +85,35 @@ export default function Mural() {
     },
   });
 
+  const { data: allTrophies = [] } = useQuery<TrophyType[]>({
+    queryKey: ["/api/trophies"],
+  });
+
   const latestAcePlayer = users
     .filter(u => (u.total5ks || 0) > 0)
     .sort((a, b) => (b.total5ks || 0) - (a.total5ks || 0))[0];
 
   const currentMonth = new Date().toLocaleString('pt-BR', { month: 'long' });
+
+  const now = new Date();
+  const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+  const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const prevMonthTrophies = allTrophies.filter(t => t.month === prevMonth && t.year === prevYear);
+  const prevMonthName = new Date(prevYear, prevMonth - 1).toLocaleString('pt-BR', { month: 'long' });
+  const userMap = new Map(users.map(u => [u.id, u]));
+
+  const getTrophyDisplay = (type: string) => {
+    const configs: Record<string, { label: string; iconClass: string; bgClass: string; borderClass: string }> = {
+      best_player: { label: "Craque do Mês", iconClass: "text-yellow-500", bgClass: "bg-yellow-500/10", borderClass: "border-yellow-500/30" },
+      best_kd: { label: "Matador Nato", iconClass: "text-red-500", bgClass: "bg-red-500/10", borderClass: "border-red-500/30" },
+      best_assists: { label: "Amigão do Server", iconClass: "text-blue-500", bgClass: "bg-blue-500/10", borderClass: "border-blue-500/30" },
+      best_hs: { label: "Mira de Aimbot", iconClass: "text-orange-500", bgClass: "bg-orange-500/10", borderClass: "border-orange-500/30" },
+      most_matches: { label: "Viciado Oficial", iconClass: "text-purple-500", bgClass: "bg-purple-500/10", borderClass: "border-purple-500/30" },
+      worst_player: { label: "Troféu Abacaxi", iconClass: "text-gray-500", bgClass: "bg-gray-500/10", borderClass: "border-gray-500/30" },
+      worst_kd: { label: "Ímã de Bala", iconClass: "text-gray-400", bgClass: "bg-gray-400/10", borderClass: "border-gray-400/30" },
+    };
+    return configs[type] || configs.best_player;
+  };
 
   const hasSteamId = !!user?.steamId64;
   const hasNickname = !!user?.nickname;
@@ -644,6 +668,52 @@ export default function Mural() {
           </Button>
         </CardContent>
       </Card>
+
+      {prevMonthTrophies.length > 0 && (
+        <Card className="border-2 border-yellow-500/40 bg-gradient-to-br from-yellow-500/10 via-yellow-500/5 to-transparent" data-testid="card-trophies-month">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Award className="h-6 w-6 text-yellow-500" />
+              Troféus de {prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1)} {prevYear}
+            </CardTitle>
+            <CardDescription className="text-base">
+              Destaques do mês anterior
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {prevMonthTrophies.map((trophy) => {
+                const display = getTrophyDisplay(trophy.type);
+                const trophyUser = userMap.get(trophy.userId);
+                return (
+                  <div
+                    key={trophy.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${display.borderClass} ${display.bgClass}`}
+                    data-testid={`trophy-winner-${trophy.type}`}
+                  >
+                    <Avatar className="h-10 w-10 border-2 border-muted">
+                      <AvatarImage src={trophyUser?.profileImageUrl || undefined} />
+                      <AvatarFallback>{(trophyUser?.nickname || trophyUser?.firstName || "?").charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Trophy className={`h-4 w-4 shrink-0 ${display.iconClass}`} />
+                        <span className="text-sm font-bold truncate">{display.label}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {trophyUser?.nickname || trophyUser?.firstName || "Jogador"}
+                      </p>
+                      {trophy.value && (
+                        <p className="text-xs font-mono font-bold text-muted-foreground">{trophy.value}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card data-testid="card-apoiadores">
         <CardHeader>

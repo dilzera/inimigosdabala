@@ -1195,8 +1195,16 @@ export async function registerRoutes(
           if (qualified.length > 0) {
             await storage.deleteTrophiesByMonthYear(month, year);
             const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            const savedSrMap = new Map<string, number>();
+            if (rankings && Array.isArray(rankings)) {
+              for (const r of rankings) {
+                if (r.id && r.skillRating != null) {
+                  savedSrMap.set(r.id, r.skillRating);
+                }
+              }
+            }
             for (const def of TROPHY_DEFINITIONS) {
-              const winner = def.getWinner(qualified);
+              const winner = def.getWinner(qualified, savedSrMap);
               if (winner) {
                 await storage.createTrophy({
                   userId: winner.userId, type: def.type, month, year,
@@ -1267,21 +1275,18 @@ export async function registerRoutes(
       type: "best_player",
       title: "Craque do Mês",
       description: "O cara é brabo demais! Melhor jogador do mês, carregou o time nas costas.",
-      getWinner: (stats: any[]) => {
+      getWinner: (stats: any[], savedSrMap?: Map<string, number>) => {
         if (stats.length === 0) return null;
-        const sorted = [...stats].sort((a, b) => {
-          const srA = calculateSkillRating(a);
-          const srB = calculateSkillRating(b);
-          return srB - srA;
-        });
-        return { ...sorted[0], value: `SR: ${calculateSkillRating(sorted[0]).toFixed(0)}` };
+        const getSR = (s: any) => savedSrMap?.get(s.userId) ?? calculateSkillRating(s);
+        const sorted = [...stats].sort((a, b) => getSR(b) - getSR(a));
+        return { ...sorted[0], value: `SR: ${getSR(sorted[0]).toFixed(0)}` };
       }
     },
     {
       type: "best_kd",
       title: "Matador Nato",
       description: "Esse aí não morre de graça! Maior K/D do mês, os inimigos que se escondam.",
-      getWinner: (stats: any[]) => {
+      getWinner: (stats: any[], _savedSrMap?: Map<string, number>) => {
         if (stats.length === 0) return null;
         const sorted = [...stats].sort((a, b) => {
           const kdA = a.deaths > 0 ? a.kills / a.deaths : a.kills;
@@ -1296,7 +1301,7 @@ export async function registerRoutes(
       type: "best_assists",
       title: "Amigão do Server",
       description: "Não mata, mas ajuda! Maior média de assistências do mês. O verdadeiro team player.",
-      getWinner: (stats: any[]) => {
+      getWinner: (stats: any[], _savedSrMap?: Map<string, number>) => {
         if (stats.length === 0) return null;
         const sorted = [...stats].sort((a, b) => {
           const avgA = a.matchesPlayed > 0 ? a.assists / a.matchesPlayed : 0;
@@ -1311,7 +1316,7 @@ export async function registerRoutes(
       type: "best_hs",
       title: "Mira de Aimbot",
       description: "Só na cabeça! Melhor percentual de headshot. Se não fosse amigo, já tinha sido reportado.",
-      getWinner: (stats: any[]) => {
+      getWinner: (stats: any[], _savedSrMap?: Map<string, number>) => {
         if (stats.length === 0) return null;
         const sorted = [...stats].sort((a, b) => {
           const hsA = a.kills > 0 ? (a.headshots / a.kills) * 100 : 0;
@@ -1326,7 +1331,7 @@ export async function registerRoutes(
       type: "most_matches",
       title: "Viciado Oficial",
       description: "Esse aí não larga o PC! Jogou mais partidas que todo mundo. Precisa de uma intervenção.",
-      getWinner: (stats: any[]) => {
+      getWinner: (stats: any[], _savedSrMap?: Map<string, number>) => {
         if (stats.length === 0) return null;
         const sorted = [...stats].sort((a, b) => b.matchesPlayed - a.matchesPlayed);
         return { ...sorted[0], value: `${sorted[0].matchesPlayed} partidas` };
@@ -1336,21 +1341,18 @@ export async function registerRoutes(
       type: "worst_player",
       title: "Troféu Abacaxi",
       description: "Alguém tem que ser o último... Pior skill rating do mês. Mas pelo menos jogou, né?",
-      getWinner: (stats: any[]) => {
+      getWinner: (stats: any[], savedSrMap?: Map<string, number>) => {
         if (stats.length === 0) return null;
-        const sorted = [...stats].sort((a, b) => {
-          const srA = calculateSkillRating(a);
-          const srB = calculateSkillRating(b);
-          return srA - srB;
-        });
-        return { ...sorted[0], value: `SR: ${calculateSkillRating(sorted[0]).toFixed(0)}` };
+        const getSR = (s: any) => savedSrMap?.get(s.userId) ?? calculateSkillRating(s);
+        const sorted = [...stats].sort((a, b) => getSR(a) - getSR(b));
+        return { ...sorted[0], value: `SR: ${getSR(sorted[0]).toFixed(0)}` };
       }
     },
     {
       type: "worst_kd",
       title: "Ímã de Bala",
       description: "Esse aí morre mais que personagem de novela! Menor K/D do mês. Os inimigos agradecem.",
-      getWinner: (stats: any[]) => {
+      getWinner: (stats: any[], _savedSrMap?: Map<string, number>) => {
         if (stats.length === 0) return null;
         const sorted = [...stats].sort((a, b) => {
           const kdA = a.deaths > 0 ? a.kills / a.deaths : a.kills;
@@ -1464,8 +1466,18 @@ export async function registerRoutes(
       const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
       const monthName = monthNames[month - 1];
 
+      const savedSrMap = new Map<string, number>();
+      const savedRanking = await storage.getMonthlyRankingByMonthYear(month, year);
+      if (savedRanking?.rankings && Array.isArray(savedRanking.rankings)) {
+        for (const r of savedRanking.rankings as any[]) {
+          if (r.id && r.skillRating != null) {
+            savedSrMap.set(r.id, r.skillRating);
+          }
+        }
+      }
+
       for (const def of TROPHY_DEFINITIONS) {
-        const winner = def.getWinner(qualifiedStats);
+        const winner = def.getWinner(qualifiedStats, savedSrMap);
         if (winner) {
           const user = userMap.get(winner.userId);
           const trophy = await storage.createTrophy({
