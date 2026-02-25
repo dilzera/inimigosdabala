@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Medal, Award, Target, Crosshair, Star, Calendar, TrendingUp, ArrowUpDown, Skull, Handshake } from "lucide-react";
+import { Trophy, Medal, Award, Target, Crosshair, Star, Calendar, TrendingUp, ArrowUpDown, Skull, Handshake, Zap, Flame } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Link } from "wouter";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -150,6 +150,8 @@ export default function RankingMensal() {
   const topByKills = [...players].sort((a, b) => b.kills - a.kills).slice(0, 3);
   const topByWinRate = [...players].sort((a, b) => getWinRate(b) - getWinRate(a)).slice(0, 3);
   const topByAssists = [...players].sort((a, b) => getAvgAssists(b) - getAvgAssists(a)).slice(0, 3);
+  const topByAces = [...players].filter(p => p.total5ks > 0).sort((a, b) => b.total5ks - a.total5ks).slice(0, 3);
+  const topBy4ks = [...players].filter(p => p.total4ks > 0).sort((a, b) => b.total4ks - a.total4ks).slice(0, 3);
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -297,6 +299,22 @@ export default function RankingMensal() {
           players={topByAssists}
           statFormatter={(p) => `${getAvgAssists(p).toFixed(1)}/jogo`}
         />
+        {topByAces.length > 0 && (
+          <TopCard
+            title="Mais ACEs (5K)"
+            icon={<Zap className="h-4 w-4 text-yellow-500" />}
+            players={topByAces}
+            statFormatter={(p) => `${p.total5ks} ACE${p.total5ks > 1 ? "s" : ""}`}
+          />
+        )}
+        {topBy4ks.length > 0 && (
+          <TopCard
+            title="Mais 4Ks"
+            icon={<Flame className="h-4 w-4 text-orange-500" />}
+            players={topBy4ks}
+            statFormatter={(p) => `${p.total4ks} 4K${p.total4ks > 1 ? "s" : ""}`}
+          />
+        )}
       </div>
 
       <Card>

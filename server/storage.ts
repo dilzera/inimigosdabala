@@ -115,6 +115,7 @@ export interface IStorage {
   joinMixList(userId: string, listDate: string, isSub: boolean): Promise<MixAvailability | undefined>;
   leaveMixList(userId: string, listDate: string): Promise<boolean>;
   getLatestMatchWithMvp(): Promise<{ match: Match; mvpStats: MatchStats; mvpUser: User } | undefined>;
+  getLatestAce(): Promise<{ match: Match; aceStats: MatchStats; aceUser: User } | undefined>;
 
   // Mix penalty operations
   getUserPenalties(userId: string): Promise<MixPenalty[]>;
@@ -1028,6 +1029,25 @@ export class DatabaseStorage implements IStorage {
     if (!mvpUser) return undefined;
 
     return { match: latestMatch, mvpStats: mvp, mvpUser };
+  }
+
+  async getLatestAce(): Promise<{ match: Match; aceStats: MatchStats; aceUser: User } | undefined> {
+    const rows = await db.select({
+      matchStat: matchStats,
+      match: matches,
+    }).from(matchStats)
+      .innerJoin(matches, eq(matchStats.matchId, matches.id))
+      .where(sql`${matchStats.enemy5ks} > 0`)
+      .orderBy(desc(matches.date), desc(matchStats.id))
+      .limit(1);
+
+    if (rows.length === 0) return undefined;
+
+    const { matchStat, match } = rows[0];
+    const [aceUser] = await db.select().from(users).where(eq(users.id, matchStat.userId));
+    if (!aceUser) return undefined;
+
+    return { match, aceStats: matchStat, aceUser };
   }
 
   async getUserPenalties(userId: string): Promise<MixPenalty[]> {

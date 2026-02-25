@@ -89,9 +89,14 @@ export default function Mural() {
     queryKey: ["/api/trophies"],
   });
 
-  const latestAcePlayer = users
-    .filter(u => (u.total5ks || 0) > 0)
-    .sort((a, b) => (b.total5ks || 0) - (a.total5ks || 0))[0];
+  const { data: latestAceData } = useQuery<{ match: any; aceStats: any; aceUser: any } | null>({
+    queryKey: ["/api/matches/latest-ace"],
+    queryFn: async () => {
+      const res = await fetch("/api/matches/latest-ace", { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
 
   const currentMonth = new Date().toLocaleString('pt-BR', { month: 'long' });
 
@@ -137,8 +142,8 @@ export default function Mural() {
     }
   };
 
-  const acePlayerName = latestAcePlayer 
-    ? (latestAcePlayer.nickname || latestAcePlayer.firstName || "Jogador")
+  const acePlayerName = latestAceData?.aceUser
+    ? (latestAceData.aceUser.nickname || latestAceData.aceUser.firstName || "Jogador")
     : null;
 
   const mvpName = latestMvp?.mvpUser
@@ -484,7 +489,7 @@ export default function Mural() {
           </Card>
         )}
 
-        {latestAcePlayer && (
+        {latestAceData && (
           <Card className="border-yellow-500/30 bg-yellow-500/5" data-testid="card-ace-player">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -492,13 +497,13 @@ export default function Mural() {
                 ACE! 5K!
                 <Sparkles className="h-5 w-5 text-yellow-500" />
               </CardTitle>
-              <CardDescription>Temos um jogador destruidor na comunidade!</CardDescription>
+              <CardDescription>Último jogador a fazer um ACE!</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
                   <Avatar className="h-20 w-20 border-4 border-yellow-500">
-                    <AvatarImage src={latestAcePlayer.profileImageUrl || undefined} />
+                    <AvatarImage src={latestAceData.aceUser.profileImageUrl || undefined} />
                     <AvatarFallback className="bg-yellow-500/20 text-yellow-600 text-xl font-bold">
                       {acePlayerName?.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
@@ -510,7 +515,7 @@ export default function Mural() {
                 <div className="text-center space-y-1">
                   <h3 className="text-xl font-bold text-primary">{acePlayerName}</h3>
                   <p className="text-sm text-muted-foreground">
-                    conseguiu {latestAcePlayer.total5ks === 1 ? "um" : latestAcePlayer.total5ks} ACE{(latestAcePlayer.total5ks || 0) > 1 ? "s" : ""}!
+                    fez {latestAceData.aceStats.enemy5ks} ACE{latestAceData.aceStats.enemy5ks > 1 ? "s" : ""} nessa partida!
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -518,9 +523,12 @@ export default function Mural() {
                     <Star key={i} className="h-6 w-6 fill-yellow-500 text-yellow-500" />
                   ))}
                 </div>
-                <Badge variant="default" className="font-mono">
-                  {latestAcePlayer.total5ks} ACE{(latestAcePlayer.total5ks || 0) > 1 ? "s" : ""} no Total
+                <Badge variant="secondary" className="font-mono">
+                  {latestAceData.match.map} - {latestAceData.match.team1Score} x {latestAceData.match.team2Score}
                 </Badge>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(latestAceData.match.date).toLocaleDateString('pt-BR')}
+                </p>
               </div>
             </CardContent>
           </Card>

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Medal, Award, Target, Crosshair, Star, Info, ChevronDown, Handshake } from "lucide-react";
+import { Trophy, Medal, Award, Target, Crosshair, Star, Info, ChevronDown, Handshake, Zap, Flame } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import type { User } from "@shared/schema";
@@ -46,6 +46,8 @@ export default function Rankings() {
     const avgB = b.totalMatches > 0 ? b.totalAssists / b.totalMatches : 0;
     return avgB - avgA;
   });
+  const sortedByAces = [...playersWithMatches].filter(u => u.total5ks > 0).sort((a, b) => b.total5ks - a.total5ks);
+  const sortedBy4ks = [...playersWithMatches].filter(u => u.total4ks > 0).sort((a, b) => b.total4ks - a.total4ks);
 
   const getRankIcon = (index: number) => {
     switch (index) {
@@ -399,6 +401,48 @@ export default function Rankings() {
             </div>
           </CardContent>
         </Card>
+
+        {sortedByAces.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-yellow-500" />
+                Ranking por ACEs (5K)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {sortedByAces.slice(0, 10).map((player, index) => (
+                <PlayerRow
+                  key={player.id}
+                  player={player}
+                  index={index}
+                  stat={`${player.total5ks} ACE${player.total5ks > 1 ? "s" : ""}`}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {sortedBy4ks.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Flame className="h-5 w-5 text-orange-500" />
+                Ranking por 4Ks
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {sortedBy4ks.slice(0, 10).map((player, index) => (
+                <PlayerRow
+                  key={player.id}
+                  player={player}
+                  index={index}
+                  stat={`${player.total4ks} 4K${player.total4ks > 1 ? "s" : ""}`}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

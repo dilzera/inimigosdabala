@@ -2240,6 +2240,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get('/api/matches/latest-ace', isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await storage.getLatestAce();
+      if (!result) {
+        return res.json(null);
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching latest ACE:", error);
+      res.status(500).json({ message: "Erro ao buscar ACE" });
+    }
+  });
+
   return httpServer;
 }
 
